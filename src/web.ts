@@ -4,6 +4,13 @@ import { WebPlugin } from '@capacitor/core';
 import type { SignalStrengthPlugin, SignalStrengthResult } from './definitions';
 
 export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin {
+  private selectedNetworkType: '2G' | '3G' | '4G' | '5G' | 'random' = 'random';
+
+  async setNetworkType({ networkType }: { networkType: '2G' | '3G' | '4G' | '5G' | 'random' }): Promise<void> {
+    this.selectedNetworkType = networkType;
+    console.log(`Network type set to ${networkType}`);
+  }
+
   private intervalId: number | null = null;
 
   async openNetworkSettings(): Promise<void> {
@@ -30,9 +37,9 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
     console.log('disconnectCall');
   }
 
-  async startMonitoring(): Promise<void> {
+  async startMonitoring({ technology }: { technology: string }): Promise<void> {
     console.log('startMonitoring');
-
+    this.selectedNetworkType = technology as '2G' | '3G' | '4G' | '5G' | 'random';
     if (this.intervalId !== null) {
       console.warn('Monitoring is already running');
       return;
@@ -57,9 +64,11 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   }
 
   private generateRandomSignalStrength(): SignalStrengthResult {
-    const networkTypes: ("2G"| "3G" | "4G" | "5G" )[] = [ '2G', '3G', '4G', '5G' ];
-    const selectedNetwork = networkTypes[Math.floor(Math.random() * networkTypes.length)];
-
+    const networkTypes: ('2G' | '3G' | '4G' | '5G')[] = ['2G', '3G', '4G', '5G'];
+    let selectedNetwork = networkTypes[Math.floor(Math.random() * networkTypes.length)];
+    if (this.selectedNetworkType !== 'random') {
+      selectedNetwork = this.selectedNetworkType;
+    }
     return {
       status: 'success',
       networkType: selectedNetwork,

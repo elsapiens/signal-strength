@@ -22,6 +22,7 @@ npx cap sync
 * [`getActiveSIMCount()`](#getactivesimcount)
 * [`makeCall(...)`](#makecall)
 * [`disconnectCall()`](#disconnectcall)
+* [`setNetworkType(...)`](#setnetworktype)
 
 </docgen-index>
 
@@ -122,6 +123,19 @@ makeCall({ number }: { number: string; }) => Promise<void>
 ```typescript
 disconnectCall() => Promise<void>
 ```
+
+--------------------
+
+
+### setNetworkType(...)
+
+```typescript
+setNetworkType({ networkType }: { networkType: "2G" | "3G" | "4G" | "5G" | "random"; }) => Promise<void>
+```
+
+| Param     | Type                                                                    |
+| --------- | ----------------------------------------------------------------------- |
+| **`__0`** | <code>{ networkType: '2G' \| '3G' \| '4G' \| '5G' \| 'random'; }</code> |
 
 --------------------
 

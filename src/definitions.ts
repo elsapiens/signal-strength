@@ -17,6 +17,8 @@ export interface SignalStrengthPlugin {
   makeCall({ number }: { number: string }): Promise<void>;
   //Open the dialer to disconnect the call
   disconnectCall(): Promise<void>;
+  //Set network type to monitor the signal strength for web platform(testing)
+  setNetworkType({ networkType }: { networkType: "2G" | "3G" | "4G" | "5G" | "random" }): Promise<void>;
 
 }
 
