@@ -76,7 +76,7 @@ public class SignalStrengthPlugin extends Plugin {
     @SuppressLint("MissingPermission")
     @PluginMethod
     public void startMonitoring(PluginCall call) {
-        requestedTechnology = call.getString("technology", "all");
+        requestedTechnology = call.getString("technology", "All");
         if (isMissingRequiredPermissions(getContext())) {
             requestPermissions();
             call.reject("Required permissions are missing");
@@ -179,17 +179,17 @@ public class SignalStrengthPlugin extends Plugin {
 
             try {
                 JSONObject result = new JSONObject();
-                if (!Objects.equals(requestedTechnology, "all")
+                if (!Objects.equals(requestedTechnology, "All")
                         && !Objects.equals(requestedTechnology, getNetworkType())) {
                     result.put("status", "error");
                     result.put("message", "Not connected on the requested network type " + requestedTechnology);
                 } else {
                     result.put("status", "success");
-                    putGeneralData(result);
-                    result.put("currentCell", currentCellData);
-                    result.put("neighboringCells", neighboringCells);
                 }
-                notifyListeners("signalUpdate", new JSObject().put("data", result));
+                putGeneralData(result);
+                result.put("currentCell", currentCellData);
+                result.put("neighboringCells", neighboringCells);
+                notifyListeners("signalUpdate", result);
             } catch (JSONException ignored) {
             }
         }
@@ -357,11 +357,11 @@ public class SignalStrengthPlugin extends Plugin {
 
     private JSObject getNetworkInfo() {
         JSObject result = new JSObject();
-//        try {
-//            // TODO: Implement collecting preferred network type and current network type
-//        } catch (JSONException e) {
-//            throw new RuntimeException(e);
-//        }
+        // try {
+        // // TODO: Implement collecting preferred network type and current network type
+        // } catch (JSONException e) {
+        // throw new RuntimeException(e);
+        // }
         return result;
     }
 
@@ -375,8 +375,9 @@ public class SignalStrengthPlugin extends Plugin {
             }, 1);
         }
     }
+
     private String getNetworkVoiceType() {
-        String callType = "Unknown";
+        String callType = "UNKNOWN";
         try {
             Context context = getContext();
             TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -496,11 +497,11 @@ public class SignalStrengthPlugin extends Plugin {
 
         // getting preferred network= type and current network type to be implemented in
         // future
-//        try {
-//            // result.put("networkInfo", getNetworkInfo());
-//        } catch (JSONException e) {
-//            throw new RuntimeException(e);
-//        }
+        // try {
+        // // result.put("networkInfo", getNetworkInfo());
+        // } catch (JSONException e) {
+        // throw new RuntimeException(e);
+        // }
 
     }
 
@@ -576,6 +577,8 @@ public class SignalStrengthPlugin extends Plugin {
                 currentCellData.put("mnc", cell.getMncString()); // mobile network code
                 currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
                 currentCellData.put("cid", cell.getCi()); // cell id
+                int enodeb = cell.getCi() / 256;
+                currentCellData.put("enodeb", enodeb); // eNodeB id
                 currentCellData.put("pci", cell.getPci()); // physical cell id
                 currentCellData.put("tac", cell.getTac()); // tracking area code
                 currentCellData.put("arfcn", cell.getEarfcn()); // absolute radio frequency channel number

@@ -23,6 +23,7 @@ npx cap sync
 * [`makeCall(...)`](#makecall)
 * [`disconnectCall()`](#disconnectcall)
 * [`setNetworkType(...)`](#setnetworktype)
+* [Enums](#enums)
 
 </docgen-index>
 
@@ -32,12 +33,12 @@ npx cap sync
 ### startMonitoring(...)
 
 ```typescript
-startMonitoring({ technology }: { technology: string; }) => Promise<void>
+startMonitoring({ technology }: { technology: NetworkType; }) => Promise<void>
 ```
 
-| Param     | Type                                 |
-| --------- | ------------------------------------ |
-| **`__0`** | <code>{ technology: string; }</code> |
+| Param     | Type                                                                 |
+| --------- | -------------------------------------------------------------------- |
+| **`__0`** | <code>{ technology: <a href="#networktype">NetworkType</a>; }</code> |
 
 --------------------
 
@@ -130,13 +131,28 @@ disconnectCall() => Promise<void>
 ### setNetworkType(...)
 
 ```typescript
-setNetworkType({ networkType }: { networkType: "2G" | "3G" | "4G" | "5G" | "random"; }) => Promise<void>
+setNetworkType({ networkType }: { networkType: NetworkType; }) => Promise<void>
 ```
 
-| Param     | Type                                                                    |
-| --------- | ----------------------------------------------------------------------- |
-| **`__0`** | <code>{ networkType: '2G' \| '3G' \| '4G' \| '5G' \| 'random'; }</code> |
+| Param     | Type                                                                  |
+| --------- | --------------------------------------------------------------------- |
+| **`__0`** | <code>{ networkType: <a href="#networktype">NetworkType</a>; }</code> |
 
 --------------------
+
+
+### Enums
+
+
+#### NetworkType
+
+| Members       | Value                  |
+| ------------- | ---------------------- |
+| **`TwoG`**    | <code>"2G"</code>      |
+| **`ThreeG`**  | <code>"3G"</code>      |
+| **`FourG`**   | <code>"4G"</code>      |
+| **`FiveG`**   | <code>"5G"</code>      |
+| **`UNKNOWN`** | <code>"UNKNOWN"</code> |
+| **`All`**     | <code>"ALL"</code>     |
 
 </docgen-api>

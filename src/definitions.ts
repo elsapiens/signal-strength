@@ -1,6 +1,6 @@
 export interface SignalStrengthPlugin {
   //Start monitoring the signal strength of the device with the given technology eg. "2G", "3G", "4G", "5G", "All"
-  startMonitoring({ technology }: { technology: string }): Promise<void>;
+  startMonitoring({ technology }: { technology: NetworkType }): Promise<void>;
   //Stop monitoring the signal strength of the device
   stopMonitoring(): Promise<void>;
   //Get the current signal strength of the device every second
@@ -18,7 +18,7 @@ export interface SignalStrengthPlugin {
   //Open the dialer to disconnect the call
   disconnectCall(): Promise<void>;
   //Set network type to monitor the signal strength for web platform(testing)
-  setNetworkType({ networkType }: { networkType: "2G" | "3G" | "4G" | "5G" | "random" }): Promise<void>;
+  setNetworkType({ networkType }: { networkType: NetworkType }): Promise<void>;
 
 }
 
@@ -28,7 +28,7 @@ export interface SignalStrengthResult {
   isMultiSim?: boolean;
   simCount?: number;
   isOnCall?: boolean;
-  networkType: string; // "2G", "3G", "4G", "5G", "WiFi", "No Connection"
+  dataConnectionType?: DataConnectionType;
   speed?: {
     download: number; // in Kbps
     upload: number; // in Kbps
@@ -41,8 +41,8 @@ export interface SignalStrengthResult {
  * Information about the currently connected cell
  */
 export interface CurrentCellInfo {
-  type: "GSM" | "WCDMA" | "LTE" | "NR"; // 2G, 3G, 4G, 5G
-  technology: "2G" | "3G" | "4G" | "5G";
+  type: CellType; // GSM, WCDMA, LTE, NR
+  technology: NetworkType; // 2G, 3G, 4G, 5G
   mcc?: string; // Mobile Country Code
   mnc?: string; // Mobile Network Code
   operator?: string; // Operator Name
@@ -70,7 +70,7 @@ export interface CurrentCellInfo {
  * Information about neighboring cells
  */
 export interface NeighborCellInfo {
-  type: "GSM" | "WCDMA" | "LTE" | "NR"; // 2G, 3G, 4G, 5G
+  type: CellType; // GSM, WCDMA, LTE, NR
   mcc?: string; // Mobile Country Code
   mnc?: string; // Mobile Network Code
   cid?: number; // Cell ID
@@ -81,3 +81,27 @@ export interface NeighborCellInfo {
   asulevel?: number; // Arbitrary Strength Unit (ASU)
   level?: number; // Signal level
 }
+
+export enum DataConnectionType {
+  WIFI = "Wifi",
+  MOBILE = "Mobile",
+  UNKNOWN = "Unknown",
+  NO_CONNECTION = "No Connection"
+ }
+
+export enum NetworkType { 
+  TwoG = "2G", 
+  ThreeG = "3G", 
+  FourG = "4G", 
+  FiveG = "5G", 
+  UNKNOWN = "UNKNOWN",
+  All = "ALL" 
+}
+
+export enum CellType { 
+  GSM = "GSM", 
+  WCDMA = "WCDMA", 
+  LTE = "LTE", 
+  NR = "NR",
+  UNKNOWN = "UNKNOWN"
+ }

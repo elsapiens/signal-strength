@@ -1,14 +1,22 @@
 import type { ListenerCallback, PluginListenerHandle } from '@capacitor/core';
 import { WebPlugin } from '@capacitor/core';
 
-import type { SignalStrengthPlugin, SignalStrengthResult } from './definitions';
+import type {  SignalStrengthPlugin, SignalStrengthResult } from './definitions';
+import { CellType, DataConnectionType, NetworkType } from './definitions';
 
 export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin {
-  private selectedNetworkType: '2G' | '3G' | '4G' | '5G' | 'random' = 'random';
+  private selectedNetworkType: NetworkType = NetworkType.FourG;
+  private isOnCall = false;
+  private simCount = 1;
 
-  async setNetworkType({ networkType }: { networkType: '2G' | '3G' | '4G' | '5G' | 'random' }): Promise<void> {
+  async setNetworkType({ networkType }: { networkType: NetworkType }): Promise<void> {
     this.selectedNetworkType = networkType;
     console.log(`Network type set to ${networkType}`);
+  }
+
+  async setSimCount({ simCount }: { simCount: number }): Promise<void> {
+    this.simCount = simCount;
+    console.log(`Sim count set to ${simCount}`);
   }
 
   private intervalId: number | null = null;
@@ -31,15 +39,17 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
 
   async makeCall({ number }: { number: string }): Promise<void> {
     console.log('makeCall', number);
+    this.isOnCall = true;
   }
 
   async disconnectCall(): Promise<void> {
     console.log('disconnectCall');
+    this.isOnCall = false;
   }
 
-  async startMonitoring({ technology }: { technology: string }): Promise<void> {
+  async startMonitoring({ technology }: { technology: NetworkType }): Promise<void> {
     console.log('startMonitoring');
-    this.selectedNetworkType = technology as '2G' | '3G' | '4G' | '5G' | 'random';
+    this.selectedNetworkType = technology;
     if (this.intervalId !== null) {
       console.warn('Monitoring is already running');
       return;
@@ -64,40 +74,45 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   }
 
   private generateRandomSignalStrength(): SignalStrengthResult {
-    const networkTypes: ('2G' | '3G' | '4G' | '5G')[] = ['2G', '3G', '4G', '5G'];
-    let selectedNetwork = networkTypes[Math.floor(Math.random() * networkTypes.length)];
-    if (this.selectedNetworkType !== 'random') {
+    let selectedNetwork:NetworkType = Object.values(NetworkType)[Math.floor(Math.random() * Object.values(NetworkType).length)] as NetworkType;
+    if (this.selectedNetworkType !== NetworkType.All) {
       selectedNetwork = this.selectedNetworkType;
     }
-    return {
+    const forreturn: SignalStrengthResult = {
       status: 'success',
-      networkType: selectedNetwork,
-      speed: {
+      isMultiSim: true,
+      simCount: this.simCount,
+      isOnCall: this.isOnCall,
+      dataConnectionType: DataConnectionType.MOBILE,
+    };
+    if (forreturn.dataConnectionType !== DataConnectionType.NO_CONNECTION) {
+      forreturn.speed = {
         download: Math.floor(Math.random() * 1000),
         upload: Math.floor(Math.random() * 500),
-      },
-      currentCell: {
-        type: 'LTE',
-        technology: selectedNetwork,
-        mcc: '310',
-        mnc: '260',
-        operator: 'T-Mobile',
-        cid: Math.floor(Math.random() * 100000),
-        pci: Math.floor(Math.random() * 100),
-        tac: Math.floor(Math.random() * 5000),
-        arfcn: Math.floor(Math.random() * 2000),
-        dbm: -1 * (Math.floor(Math.random() * 50) + 50),
-        asulevel: Math.floor(Math.random() * 30),
-        level: Math.floor(Math.random() * 5),
-        rsrp: -1 * (Math.floor(Math.random() * 50) + 80),
-        rsrq: -1 * (Math.floor(Math.random() * 10) + 10),
-        sssinr: Math.floor(Math.random() * 30),
-        band: Math.floor(Math.random() * 100),
-        cqi: Math.floor(Math.random() * 15),
-      },
-      neighboringCells: [
+      };
+    }
+    (forreturn.currentCell = {
+      type: CellType.LTE,
+      technology: selectedNetwork,
+      mcc: '310',
+      mnc: '260',
+      operator: 'T-Mobile',
+      cid: Math.floor(Math.random() * 100000),
+      pci: Math.floor(Math.random() * 100),
+      tac: Math.floor(Math.random() * 5000),
+      arfcn: Math.floor(Math.random() * 2000),
+      dbm: -1 * (Math.floor(Math.random() * 50) + 50),
+      asulevel: Math.floor(Math.random() * 30),
+      level: Math.floor(Math.random() * 5),
+      rsrp: -1 * (Math.floor(Math.random() * 50) + 80),
+      rsrq: -1 * (Math.floor(Math.random() * 10) + 10),
+      sssinr: Math.floor(Math.random() * 30),
+      band: Math.floor(Math.random() * 100),
+      cqi: Math.floor(Math.random() * 15),
+    }),
+      (forreturn.neighboringCells = [
         {
-          type: 'LTE',
+          type: CellType.LTE,
           mcc: '310',
           mnc: '260',
           cid: Math.floor(Math.random() * 100000),
@@ -108,7 +123,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
           asulevel: Math.floor(Math.random() * 30),
           level: Math.floor(Math.random() * 5),
         },
-      ],
-    };
+      ]);
+    return forreturn;
   }
 }
