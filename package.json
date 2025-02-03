@@ -1,6 +1,6 @@
 {
   "name": "elsapiens-signal-strength",
-  "version": "0.0.13",
+  "version": "0.0.15",
   "description": "To get signal strength details from Android devices for each technology (5G, 4G, 3G, 2G) including neighboring cell info every second.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",

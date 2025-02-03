@@ -484,7 +484,7 @@ public class SignalStrengthPlugin extends Plugin {
 
         String networkType = getConnectionType(getContext());
         try {
-            result.put("networkType", networkType);
+            result.put("dataConnectionType", networkType);
         } catch (JSONException ignored) {
         }
 

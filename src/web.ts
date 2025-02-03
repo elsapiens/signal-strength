@@ -8,6 +8,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   private selectedNetworkType: NetworkType = NetworkType.FourG;
   private isOnCall = false;
   private simCount = 1;
+  private dataConnectionType: DataConnectionType = DataConnectionType.MOBILE;
 
   async setNetworkType({ networkType }: { networkType: NetworkType }): Promise<void> {
     this.selectedNetworkType = networkType;
@@ -69,6 +70,11 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
     }
   }
 
+  async setDataConnectionType({ dataConnectionType }: { dataConnectionType: DataConnectionType }): Promise<void> {
+    this.dataConnectionType = dataConnectionType;
+    console.log('setDataConnectionType', dataConnectionType);
+  }
+
   addListener(eventName: 'signalUpdate', listenerFunc: ListenerCallback): Promise<PluginListenerHandle> {
     return super.addListener(eventName, listenerFunc);
   }
@@ -83,7 +89,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
       isMultiSim: true,
       simCount: this.simCount,
       isOnCall: this.isOnCall,
-      dataConnectionType: DataConnectionType.MOBILE,
+      dataConnectionType: this.dataConnectionType,
     };
     if (forreturn.dataConnectionType !== DataConnectionType.NO_CONNECTION) {
       forreturn.speed = {

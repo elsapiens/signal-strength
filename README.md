@@ -23,6 +23,7 @@ npx cap sync
 * [`makeCall(...)`](#makecall)
 * [`disconnectCall()`](#disconnectcall)
 * [`setNetworkType(...)`](#setnetworktype)
+* [`setDataConnectionType(...)`](#setdataconnectiontype)
 * [Enums](#enums)
 
 </docgen-index>
@@ -141,6 +142,19 @@ setNetworkType({ networkType }: { networkType: NetworkType; }) => Promise<void>
 --------------------
 
 
+### setDataConnectionType(...)
+
+```typescript
+setDataConnectionType({ dataConnectionType }: { dataConnectionType: DataConnectionType; }) => Promise<void>
+```
+
+| Param     | Type                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------ |
+| **`__0`** | <code>{ dataConnectionType: <a href="#dataconnectiontype">DataConnectionType</a>; }</code> |
+
+--------------------
+
+
 ### Enums
 
 
@@ -154,5 +168,15 @@ setNetworkType({ networkType }: { networkType: NetworkType; }) => Promise<void>
 | **`FiveG`**   | <code>"5G"</code>      |
 | **`UNKNOWN`** | <code>"UNKNOWN"</code> |
 | **`All`**     | <code>"ALL"</code>     |
+
+
+#### DataConnectionType
+
+| Members             | Value                        |
+| ------------------- | ---------------------------- |
+| **`WIFI`**          | <code>"Wifi"</code>          |
+| **`MOBILE`**        | <code>"Mobile"</code>        |
+| **`UNKNOWN`**       | <code>"Unknown"</code>       |
+| **`NO_CONNECTION`** | <code>"No Connection"</code> |
 
 </docgen-api>

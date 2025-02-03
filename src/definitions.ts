@@ -19,7 +19,8 @@ export interface SignalStrengthPlugin {
   disconnectCall(): Promise<void>;
   //Set network type to monitor the signal strength for web platform(testing)
   setNetworkType({ networkType }: { networkType: NetworkType }): Promise<void>;
-
+  //Get the current signal strength of the device
+  setDataConnectionType({ dataConnectionType }: { dataConnectionType: DataConnectionType }): Promise<void>;
 }
 
 export interface SignalStrengthResult {
