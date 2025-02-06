@@ -16,6 +16,7 @@ npx cap sync
 * [`startMonitoring(...)`](#startmonitoring)
 * [`stopMonitoring()`](#stopmonitoring)
 * [`addListener('signalUpdate', ...)`](#addlistenersignalupdate-)
+* [`removeAllListeners()`](#removealllisteners)
 * [`openNetworkSettings()`](#opennetworksettings)
 * [`openWifiSettings()`](#openwifisettings)
 * [`isMultiSim()`](#ismultisim)
@@ -63,6 +64,15 @@ addListener(eventName: 'signalUpdate', listenerFunc: (data: any) => void) => voi
 | ------------------ | ----------------------------------- |
 | **`eventName`**    | <code>'signalUpdate'</code>         |
 | **`listenerFunc`** | <code>(data: any) =&gt; void</code> |
+
+--------------------
+
+
+### removeAllListeners()
+
+```typescript
+removeAllListeners() => Promise<void>
+```
 
 --------------------
 

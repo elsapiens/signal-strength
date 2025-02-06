@@ -177,8 +177,7 @@ public class SignalStrengthPlugin extends Plugin {
                 }
             }
 
-            try {
-                JSONObject result = new JSONObject();
+                JSObject result = new JSObject();
                 if (!Objects.equals(requestedTechnology, "All")
                         && !Objects.equals(requestedTechnology, getNetworkType())) {
                     result.put("status", "error");
@@ -190,8 +189,6 @@ public class SignalStrengthPlugin extends Plugin {
                 result.put("currentCell", currentCellData);
                 result.put("neighboringCells", neighboringCells);
                 notifyListeners("signalUpdate", result);
-            } catch (JSONException ignored) {
-            }
         }
     }
 

@@ -1,4 +1,4 @@
-import type { ListenerCallback, PluginListenerHandle } from '@capacitor/core';
+import type { PluginListenerHandle} from '@capacitor/core';
 import { WebPlugin } from '@capacitor/core';
 
 import type {  SignalStrengthPlugin, SignalStrengthResult } from './definitions';
@@ -20,7 +20,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
     console.log(`Sim count set to ${simCount}`);
   }
 
-  private intervalId: number | null = null;
+  private intervalId: NodeJS.Timeout | null = null;
 
   async openNetworkSettings(): Promise<void> {
     console.log('openNetworkSettings');
@@ -49,17 +49,31 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   }
 
   async startMonitoring({ technology }: { technology: NetworkType }): Promise<void> {
-    console.log('startMonitoring');
+    console.log('start Monitoring....');
     this.selectedNetworkType = technology;
     if (this.intervalId !== null) {
       console.warn('Monitoring is already running');
       return;
     }
 
-    this.intervalId = window.setInterval(() => {
+    this.intervalId = setInterval(() => {
+      console.log('Monitoring signal strength ....');
+      
       const signalStrength = this.generateRandomSignalStrength();
       this.notifyListeners('signalUpdate', signalStrength);
     }, 1000);
+    console.log('Started monitoring');
+    
+  }
+
+  async removeAllListeners(): Promise<void> {
+    console.log('removeAllListeners');
+    super.removeAllListeners();
+  }
+
+  async addListener(eventName: string, listenerFunc: (data: any) => void): Promise<PluginListenerHandle> {
+    console.log('addListener', eventName);
+    return super.addListener(eventName, listenerFunc);
   }
 
   async stopMonitoring(): Promise<void> {
@@ -73,10 +87,6 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   async setDataConnectionType({ dataConnectionType }: { dataConnectionType: DataConnectionType }): Promise<void> {
     this.dataConnectionType = dataConnectionType;
     console.log('setDataConnectionType', dataConnectionType);
-  }
-
-  addListener(eventName: 'signalUpdate', listenerFunc: ListenerCallback): Promise<PluginListenerHandle> {
-    return super.addListener(eventName, listenerFunc);
   }
 
   private generateRandomSignalStrength(): SignalStrengthResult {

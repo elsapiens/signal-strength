@@ -5,6 +5,7 @@ export interface SignalStrengthPlugin {
   stopMonitoring(): Promise<void>;
   //Get the current signal strength of the device every second
   addListener(eventName: 'signalUpdate', listenerFunc: (data: any) => void): void;
+  removeAllListeners(): Promise<void>;
   //Open the network settings of the device
   openNetworkSettings(): Promise<void>;
   //Open the wifi settings of the device
