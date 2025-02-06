@@ -177,18 +177,18 @@ public class SignalStrengthPlugin extends Plugin {
                 }
             }
 
-                JSObject result = new JSObject();
-                if (!Objects.equals(requestedTechnology, "All")
-                        && !Objects.equals(requestedTechnology, getNetworkType())) {
-                    result.put("status", "error");
-                    result.put("message", "Not connected on the requested network type " + requestedTechnology);
-                } else {
-                    result.put("status", "success");
-                }
-                putGeneralData(result);
-                result.put("currentCell", currentCellData);
-                result.put("neighboringCells", neighboringCells);
-                notifyListeners("signalUpdate", result);
+            JSObject result = new JSObject();
+            if (!Objects.equals(requestedTechnology, "All")
+                    && !Objects.equals(requestedTechnology, getNetworkType())) {
+                result.put("status", "error");
+                result.put("message", "Not connected on the requested network type " + requestedTechnology);
+            } else {
+                result.put("status", "success");
+            }
+            putGeneralData(result);
+            result.put("currentCell", currentCellData);
+            result.put("neighboringCells", neighboringCells);
+            notifyListeners("signalUpdate", result);
         }
     }
 
@@ -380,6 +380,10 @@ public class SignalStrengthPlugin extends Plugin {
             TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
             if (telephonyManager != null) {
+                if (ActivityCompat.checkSelfPermission(getContext(),
+                        Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                    return "Permission Denied";
+                }
                 int voiceNetworkType = telephonyManager.getVoiceNetworkType();
 
                 switch (voiceNetworkType) {
@@ -573,15 +577,15 @@ public class SignalStrengthPlugin extends Plugin {
                 currentCellData.put("mcc", cell.getMccString()); // mobile country code
                 currentCellData.put("mnc", cell.getMncString()); // mobile network code
                 currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
-                currentCellData.put("cid", cell.getCi()); // cell id
                 int enodeb = cell.getCi() / 256;
-                currentCellData.put("enodeb", enodeb); // eNodeB id
+                int cellId = cell.getCi() % 256;
+                currentCellData.put("cid", cellId); // cell id
+                currentCellData.put("enodebId", enodeb); // eNodeB id
                 currentCellData.put("pci", cell.getPci()); // physical cell id
                 currentCellData.put("tac", cell.getTac()); // tracking area code
                 currentCellData.put("arfcn", cell.getEarfcn()); // absolute radio frequency channel number
                 currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
                 currentCellData.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength
-                                                                       // unit)
                 currentCellData.put("level", signal.getLevel()); // signal level
                 currentCellData.put("rsrp", signal.getRsrp()); // reference signal received power
                 currentCellData.put("rsrq", signal.getRsrq()); // reference signal received quality
@@ -611,23 +615,29 @@ public class SignalStrengthPlugin extends Plugin {
                     currentCellData.put("mcc", cell.getMccString()); // mobile country code
                     currentCellData.put("mnc", cell.getMncString()); // mobile network code
                     currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
+                    long nci = cell.getNci();
+                    int gNB_ID_bits = getGnbIdBitsLength(nci);
+                    int sectorID_bits = 36 - gNB_ID_bits;
+                    long gNB = nci >> sectorID_bits;
+                    long cellId = nci & ((1L << sectorID_bits) - 1);
+                    currentCellData.put("gNB", gNB); // gNB id
+                    currentCellData.put("enodebId", gNB); // eNodeB id
+                    currentCellData.put("sector", cellId); // sector id
                     currentCellData.put("cid", cell.getNci()); // cell id
                     currentCellData.put("pci", cell.getPci()); // physical cell id
                     currentCellData.put("tac", cell.getTac()); // tracking area code
                     currentCellData.put("arfcn", cell.getNrarfcn()); // new radio absolute radio frequency channel
-                                                                     // number
                     currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
-                    currentCellData.put("asuLevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength
-                                                                           // unit)
+                    currentCellData.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength
                     currentCellData.put("level", signal.getLevel()); // signal level
                     currentCellData.put("rsrp", signal.getSsRsrp()); // reference signal received power
                     currentCellData.put("rsrq", signal.getSsRsrq()); // reference signal received quality
                     currentCellData.put("sssinr", signal.getSsSinr()); // signal to noise and interference ratio
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        currentCellData.put("band", cell.getBands()); // frequency bands
+                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+                        currentCellData.put("band", cell.getBands()[0]); // frequency bands
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        currentCellData.put("cqi", signal.getCsiCqiReport()); // channel quality indicator
+                        currentCellData.put("cqi", signal.getCsiCqiReport().get(0)); // channel quality indicator
                     }
                 } else {
                     JSONObject neighbor = getNrNeighborObject(cell, signal);
@@ -635,6 +645,18 @@ public class SignalStrengthPlugin extends Plugin {
                 }
             } catch (Exception ignored) {
             }
+        }
+    }
+
+    public int getGnbIdBitsLength(long nci) {
+        if (nci >= (1L << 26)) {
+            return 26; // If NCI is large, assume gNB ID uses 26 bits
+        } else if (nci >= (1L << 24)) {
+            return 24; // If greater than 2^24, assume 24-bit gNB ID
+        } else if (nci >= (1L << 22)) {
+            return 22; // If greater than 2^22, assume 22-bit gNB ID
+        } else {
+            return 20; // Default to 20-bit gNB ID
         }
     }
 

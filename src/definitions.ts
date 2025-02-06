@@ -55,7 +55,7 @@ export interface CurrentCellInfo {
   dbm?: number; // Signal strength in dBm
   asulevel?: number; // Arbitrary Strength Unit (ASU)
   level?: number; // Signal level
-
+  enodebId?: number; // eNodeB ID (LTE)
   // Technology-specific fields:
   rsrp?: number; // Reference Signal Received Power (LTE/5G)
   rsrq?: number; // Reference Signal Received Quality (LTE/5G)
