@@ -32,12 +32,11 @@ import androidx.core.content.ContextCompat;
 import com.getcapacitor.annotation.Permission;
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 @CapacitorPlugin(name = "SignalStrength", permissions = {
         @Permission(alias = "fineLocation", strings = { Manifest.permission.ACCESS_FINE_LOCATION }),
         @Permission(alias = "coarseLocation", strings = { Manifest.permission.ACCESS_COARSE_LOCATION }),
+        @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION }),
         @Permission(alias = "phoneState", strings = { Manifest.permission.READ_PHONE_STATE }),
         @Permission(alias = "networkState", strings = { Manifest.permission.ACCESS_NETWORK_STATE }),
         @Permission(alias = "phoneNumbers", strings = { Manifest.permission.READ_PHONE_NUMBERS }),
@@ -60,7 +60,6 @@ public class SignalStrengthPlugin extends Plugin {
     private boolean isNetworkSpeedMonitoring = false;
     private static final String TAG = "SignalStrength";
     private MyTelephonyCallback telephonyCallback;
-    private String currentCallId;
 
     @Override
     protected void handleOnStart() {
@@ -116,7 +115,8 @@ public class SignalStrengthPlugin extends Plugin {
             assert context != null;
             telephonyManager.registerTelephonyCallback(context.getMainExecutor(), telephonyCallback);
         } else {
-            phoneStateListener = new PhoneStateListener() {
+            Executor executor = Executors.newSingleThreadExecutor();
+            phoneStateListener = new PhoneStateListener(executor) {
                 @Override
                 public void onCellInfoChanged(List<CellInfo> cellInfoList) {
                     Log.d(TAG, "onCellInfoChanged triggered (Legacy API)");
@@ -127,56 +127,47 @@ public class SignalStrengthPlugin extends Plugin {
         }
         registerCellInfoListenerRunning = true;
         scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleWithFixedDelay(new SignalStrengthTask(), 0, 1, TimeUnit.SECONDS); // Every 1 second
+        scheduler.scheduleWithFixedDelay(new SignalStrengthTask(), 0, 100, TimeUnit.MILLISECONDS); // Every 1 second
     }
 
     private class SignalStrengthTask implements Runnable {
-        private long lastUpdateTime = 0;
-
         @Override
         public void run() {
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastUpdateTime >= 1000) { // Ensure at least 1 second has passed
-                lastUpdateTime = currentTime;
-                if (ActivityCompat.checkSelfPermission(getContext(),
-                        Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        telephonyManager.requestCellInfoUpdate(getContext().getMainExecutor(),
-                                new TelephonyManager.CellInfoCallback() {
-                                    @Override
-                                    public void onCellInfo(@NonNull List<CellInfo> cellInfoList) {
-                                        handleCellInfoChanged(cellInfoList);
-                                    }
-                                });
-                    }
-                }
+            if (ActivityCompat.checkSelfPermission(getContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                telephonyManager.requestCellInfoUpdate(getContext().getMainExecutor(),
+                        new TelephonyManager.CellInfoCallback() {
+                            @Override
+                            public void onCellInfo(@NonNull List<CellInfo> cellInfoList) {
+                                handleCellInfoChanged(cellInfoList);
+                            }
+                        });
             }
         }
     }
 
     private void handleCellInfoChanged(List<CellInfo> cellInfoList) {
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastUpdateTime < 1000) {
-            return; // Skip if less than 1 second has passed
+        if (currentTime - lastUpdateTime < 900) {
+            return; // Skip if less than 900 milliseconds have passed
         }
         lastUpdateTime = currentTime;
 
         if (cellInfoList != null && !cellInfoList.isEmpty()) {
             JSONArray neighboringCells = new JSONArray();
-            JSONObject currentCellData = new JSONObject();
+            JSObject currentCellData = new JSObject();
 
             for (CellInfo cellInfo : cellInfoList) {
                 if (cellInfo instanceof CellInfoGsm) {
-                    processGsmCell((CellInfoGsm) cellInfo, currentCellData, neighboringCells);
+                    new GSMCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
                 } else if (cellInfo instanceof CellInfoWcdma) {
-                    processWcdmaCell((CellInfoWcdma) cellInfo, currentCellData, neighboringCells);
+                    new WCDMACellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
                 } else if (cellInfo instanceof CellInfoLte) {
-                    processLteCell((CellInfoLte) cellInfo, currentCellData, neighboringCells);
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && cellInfo instanceof CellInfoNr) {
-                    processNrCell((CellInfoNr) cellInfo, currentCellData, neighboringCells);
+                    new LteCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
+                } else if (cellInfo instanceof CellInfoNr) {
+                    new NrCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
                 }
             }
-
             JSObject result = new JSObject();
             if (!Objects.equals(requestedTechnology, "All")
                     && !Objects.equals(requestedTechnology, getNetworkType())) {
@@ -198,7 +189,7 @@ public class SignalStrengthPlugin extends Plugin {
             telephonyCallback = null;
             registerCellInfoListenerRunning = false;
         } else if (phoneStateListener != null) {
-            telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
+            telephonyManager.listen(phoneStateListener, 0);
             phoneStateListener = null;
             registerCellInfoListenerRunning = false;
         }
@@ -208,27 +199,18 @@ public class SignalStrengthPlugin extends Plugin {
     private class MyTelephonyCallback extends TelephonyCallback implements TelephonyCallback.CellInfoListener {
         @Override
         public void onCellInfoChanged(@NonNull List<CellInfo> cellInfoList) {
-            Log.d(TAG, "onCellInfoChanged triggered (API 31+)");
             handleCellInfoChanged(cellInfoList);
         }
     }
 
     private boolean isMissingRequiredPermissions(Context context) {
-        return ContextCompat.checkSelfPermission(context,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(context,
-                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                ||
-                ContextCompat.checkSelfPermission(context,
-                        Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED;
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_WIFI_STATE) != PackageManager.PERMISSION_GRANTED;
+
     }
 
     private void requestPermissions() {
         if (getActivity() != null) {
             ActivityCompat.requestPermissions(getActivity(), new String[] {
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.READ_PHONE_STATE,
                     Manifest.permission.ACCESS_NETWORK_STATE,
                     Manifest.permission.READ_PHONE_NUMBERS,
                     Manifest.permission.ACCESS_WIFI_STATE,
@@ -236,6 +218,10 @@ public class SignalStrengthPlugin extends Plugin {
                     Manifest.permission.ANSWER_PHONE_CALLS,
                     Manifest.permission.MODIFY_PHONE_STATE,
                     Manifest.permission.CALL_PRIVILEGED,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                    Manifest.permission.READ_PHONE_STATE
             }, 1);
         }
     }
@@ -261,7 +247,6 @@ public class SignalStrengthPlugin extends Plugin {
                 "3G";
             case TelephonyManager.NETWORK_TYPE_LTE, TelephonyManager.NETWORK_TYPE_IWLAN -> "4G";
             case TelephonyManager.NETWORK_TYPE_NR -> "5G";
-            case TelephonyManager.NETWORK_TYPE_UNKNOWN -> "UNKNOWN";
             default -> "UNKNOWN";
         };
     }
@@ -317,7 +302,6 @@ public class SignalStrengthPlugin extends Plugin {
             Bundle extras = new Bundle();
             extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true);
             telecomManager.placeCall(uri, extras);
-            currentCallId = uri.toString();
             call.resolve();
         } else {
             call.reject("TelecomManager is not available");
@@ -326,23 +310,28 @@ public class SignalStrengthPlugin extends Plugin {
 
     @PluginMethod
     public void disconnectCall(PluginCall call) {
-        if (currentCallId == null) {
-            call.reject("No active call to disconnect");
-            return;
-        }
-
-        TelecomManager telecomManager = (TelecomManager) getContext().getSystemService(Context.TELECOM_SERVICE);
-        if (telecomManager != null) {
-            if (ActivityCompat.checkSelfPermission(getContext(),
-                    Manifest.permission.ANSWER_PHONE_CALLS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions();
+        try {
+            Context context = getContext();
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ANSWER_PHONE_CALLS}, 1);
+                call.reject("Permission is missing");
                 return;
             }
-            telecomManager.endCall(); // End the current call
-            currentCallId = null; // Clear the call ID
+
+            TelecomManager telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+            if (telecomManager != null) {
+                telecomManager.endCall();
+                call.resolve();
+                return;
+            }
+
+            TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+            @SuppressLint("DiscouragedPrivateApi") Method endCallMethod = telephonyManager.getClass().getDeclaredMethod("endCall");
+            endCallMethod.invoke(telephonyManager);
+
             call.resolve();
-        } else {
-            call.reject("TelecomManager is not available");
+        } catch (Exception e) {
+            call.reject("Failed to disconnect call: " + e.getMessage());
         }
     }
 
@@ -353,13 +342,7 @@ public class SignalStrengthPlugin extends Plugin {
     }
 
     private JSObject getNetworkInfo() {
-        JSObject result = new JSObject();
-        // try {
-        // // TODO: Implement collecting preferred network type and current network type
-        // } catch (JSONException e) {
-        // throw new RuntimeException(e);
-        // }
-        return result;
+        return new JSObject();
     }
 
     public void requestCallPermission(Activity activity) {
@@ -417,16 +400,14 @@ public class SignalStrengthPlugin extends Plugin {
 
                     default:
                         // Handle unknown or newer network types
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_BITMASK_LTE_CA) {
-                                callType = "4G LTE Carrier Aggregation";
-                            } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_GSM) {
-                                callType = "2G GSM";
-                            } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_TD_SCDMA) {
-                                callType = "3G TD-SCDMA";
-                            } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_IWLAN) {
-                                callType = "WiFi Calling";
-                            }
+                        if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_BITMASK_LTE_CA) {
+                            callType = "4G LTE Carrier Aggregation";
+                        } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_GSM) {
+                            callType = "2G GSM";
+                        } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_TD_SCDMA) {
+                            callType = "3G TD-SCDMA";
+                        } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_IWLAN) {
+                            callType = "WiFi Calling";
                         }
                         break;
                 }
@@ -441,7 +422,7 @@ public class SignalStrengthPlugin extends Plugin {
      * check if more than one SIM card is present
      */
     private boolean isMultiSim() {
-        return telephonyManager.getPhoneCount() > 1;
+        return telephonyManager.getActiveModemCount() > 1;
     }
 
     private int getActiveSubscriptionCount() {
@@ -466,257 +447,24 @@ public class SignalStrengthPlugin extends Plugin {
         return telephonyManager.getCallState() != TelephonyManager.CALL_STATE_IDLE;
     }
 
-    private void putGeneralData(JSONObject result) {
+    private void putGeneralData(JSObject result) {
+        result.put("isMultiSim", isMultiSim());
+        result.put("simCount", getActiveSubscriptionCount());
+        result.put("isOnCall", isOnCall());
         try {
-            result.put("isMultiSim", isMultiSim());
-        } catch (JSONException ignored) {
-        }
-        try {
-            result.put("simCount", getActiveSubscriptionCount());
-        } catch (JSONException ignored) {
-        }
-        try {
-            result.put("isOnCall", isOnCall());
             if (result.getBoolean("isOnCall")) {
                 result.put("callType", getNetworkVoiceType());
             }
-        } catch (JSONException ignored) {
-        }
-
+        } catch (JSONException ignored) {}
         String networkType = getConnectionType(getContext());
-        try {
-            result.put("dataConnectionType", networkType);
-        } catch (JSONException ignored) {
-        }
-
-        try {
-            if (!networkType.equals("No Connection")) {
-                result.put("speed", new JSObject().put("download", downloadSpeedKbps).put("upload", uploadSpeedKbps));
-            }
-        } catch (JSONException ignored) {
-        }
-
-        // getting preferred network= type and current network type to be implemented in
-        // future
-        // try {
-        // // result.put("networkInfo", getNetworkInfo());
-        // } catch (JSONException e) {
-        // throw new RuntimeException(e);
-        // }
-
-    }
-
-    private void processGsmCell(CellInfoGsm cellInfo, JSONObject currentCellData, JSONArray neighboringCells) {
-        CellIdentityGsm cell = cellInfo.getCellIdentity();
-        CellSignalStrengthGsm signal = cellInfo.getCellSignalStrength();
-
-        try {
-            if (cellInfo.isRegistered()) {
-                currentCellData.put("type", "GSM"); // 2G
-                currentCellData.put("technology", "2G"); // 2G
-                currentCellData.put("mcc", cell.getMccString()); // mobile country code
-                currentCellData.put("mnc", cell.getMncString()); // mobile network code
-                currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
-                currentCellData.put("cid", cell.getCid()); // cell id
-                currentCellData.put("pci", cell.getCid()); // physical cell id
-                currentCellData.put("lac", cell.getLac()); // location area code
-                currentCellData.put("arfcn", cell.getArfcn()); // absolute radio frequency channel number
-                currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
-                currentCellData.put("asulevel", signal.getAsuLevel());
-                currentCellData.put("level", signal.getDbm()); // signal level
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    currentCellData.put("ber", signal.getBitErrorRate()); // bit error rate
-                }
-            } else {
-                JSONObject neighbor = getGsmNeighborObject(cell, signal);
-                neighboringCells.put(neighbor);
-            }
-        } catch (Exception ignored) {
+        result.put("dataConnectionType", networkType);
+        if (!networkType.equals("No Connection")) {
+            result.put("speed", new JSObject().put("download", downloadSpeedKbps).put("upload", uploadSpeedKbps));
         }
     }
 
-    private void processWcdmaCell(CellInfoWcdma cellInfo, JSONObject currentCellData, JSONArray neighboringCells) {
-        CellIdentityWcdma cell = cellInfo.getCellIdentity();
-        CellSignalStrengthWcdma signal = cellInfo.getCellSignalStrength();
 
-        try {
-            if (cellInfo.isRegistered()) {
-                currentCellData.put("type", "WCDMA"); // 3G
-                currentCellData.put("technology", "3G"); // 3G
-                currentCellData.put("mcc", cell.getMccString()); // mobile country code
-                currentCellData.put("mnc", cell.getMncString()); // mobile network code
-                currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
-                currentCellData.put("cid", cell.getCid()); // cell id
-                currentCellData.put("pci", cell.getCid()); // physical cell id
-                currentCellData.put("psc", cell.getPsc()); // primary scrambling code
-                currentCellData.put("tac", cell.getLac()); // location area code
-                currentCellData.put("arfcn", cell.getUarfcn()); // UTRA Absolute Radio Frequency Channel Number
-                currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
-                currentCellData.put("asulevel", signal.getAsuLevel());
-                currentCellData.put("level", signal.getLevel());
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    currentCellData.put("ecno", signal.getEcNo()); // Energy per chip over noise ratio
-                }
-            } else {
-                JSONObject neighbor = getWcdmaNeighborObject(cell, signal);
-                neighboringCells.put(neighbor);
-            }
-        } catch (Exception ignored) {
 
-        }
-    }
-
-    private void processLteCell(CellInfoLte cellInfo, JSONObject currentCellData, JSONArray neighboringCells) {
-        CellIdentityLte cell = cellInfo.getCellIdentity();
-        CellSignalStrengthLte signal = cellInfo.getCellSignalStrength();
-
-        try {
-            if (cellInfo.isRegistered()) {
-                currentCellData.put("type", "LTE"); // 4G LTE
-                currentCellData.put("technology", "4G"); // 4G LTE
-                currentCellData.put("mcc", cell.getMccString()); // mobile country code
-                currentCellData.put("mnc", cell.getMncString()); // mobile network code
-                currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
-                int enodeb = cell.getCi() / 256;
-                int cellId = cell.getCi() % 256;
-                currentCellData.put("cid", cellId); // cell id
-                currentCellData.put("enodebId", enodeb); // eNodeB id
-                currentCellData.put("pci", cell.getPci()); // physical cell id
-                currentCellData.put("tac", cell.getTac()); // tracking area code
-                currentCellData.put("arfcn", cell.getEarfcn()); // absolute radio frequency channel number
-                currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
-                currentCellData.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength
-                currentCellData.put("level", signal.getLevel()); // signal level
-                currentCellData.put("rsrp", signal.getRsrp()); // reference signal received power
-                currentCellData.put("rsrq", signal.getRsrq()); // reference signal received quality
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    currentCellData.put("rssi", signal.getRssi()); // reference signal strength indicator
-                }
-                currentCellData.put("sssinr", signal.getRssnr()); // signal to noise and interference ratio
-                currentCellData.put("band", cell.getBandwidth()); // bandwidth
-                currentCellData.put("cqi", signal.getCqi()); // channel quality indicator
-            } else {
-                JSONObject neighbor = getLteNeighborObject(cell, signal);
-                neighboringCells.put(neighbor);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void processNrCell(CellInfoNr cellInfo, JSONObject currentCellData, JSONArray neighboringCells) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            CellIdentityNr cell = (CellIdentityNr) cellInfo.getCellIdentity();
-            CellSignalStrengthNr signal = (CellSignalStrengthNr) cellInfo.getCellSignalStrength();
-
-            try {
-                if (cellInfo.isRegistered()) {
-                    currentCellData.put("type", "NR"); // 5G new radio
-                    currentCellData.put("technology", "5G"); // 5G new radio
-                    currentCellData.put("mcc", cell.getMccString()); // mobile country code
-                    currentCellData.put("mnc", cell.getMncString()); // mobile network code
-                    currentCellData.put("operator", cell.getOperatorAlphaLong()); // operator name
-                    long nci = cell.getNci();
-                    int gNB_ID_bits = getGnbIdBitsLength(nci);
-                    int sectorID_bits = 36 - gNB_ID_bits;
-                    long gNB = nci >> sectorID_bits;
-                    long cellId = nci & ((1L << sectorID_bits) - 1);
-                    currentCellData.put("gNB", gNB); // gNB id
-                    currentCellData.put("enodebId", gNB); // eNodeB id
-                    currentCellData.put("sector", cellId); // sector id
-                    currentCellData.put("cid", cell.getNci()); // cell id
-                    currentCellData.put("pci", cell.getPci()); // physical cell id
-                    currentCellData.put("tac", cell.getTac()); // tracking area code
-                    currentCellData.put("arfcn", cell.getNrarfcn()); // new radio absolute radio frequency channel
-                    currentCellData.put("dbm", signal.getDbm()); // signal strength in dBm
-                    currentCellData.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength
-                    currentCellData.put("level", signal.getLevel()); // signal level
-                    currentCellData.put("rsrp", signal.getSsRsrp()); // reference signal received power
-                    currentCellData.put("rsrq", signal.getSsRsrq()); // reference signal received quality
-                    currentCellData.put("sssinr", signal.getSsSinr()); // signal to noise and interference ratio
-                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
-                        currentCellData.put("band", cell.getBands()[0]); // frequency bands
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        currentCellData.put("cqi", signal.getCsiCqiReport().get(0)); // channel quality indicator
-                    }
-                } else {
-                    JSONObject neighbor = getNrNeighborObject(cell, signal);
-                    neighboringCells.put(neighbor);
-                }
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    public int getGnbIdBitsLength(long nci) {
-        if (nci >= (1L << 26)) {
-            return 26; // If NCI is large, assume gNB ID uses 26 bits
-        } else if (nci >= (1L << 24)) {
-            return 24; // If greater than 2^24, assume 24-bit gNB ID
-        } else if (nci >= (1L << 22)) {
-            return 22; // If greater than 2^22, assume 22-bit gNB ID
-        } else {
-            return 20; // Default to 20-bit gNB ID
-        }
-    }
-
-    @NonNull
-    private static JSONObject getGsmNeighborObject(CellIdentityGsm cell, CellSignalStrengthGsm signal)
-            throws JSONException {
-        JSONObject neighbor = new JSONObject();
-        neighbor.put("cid", cell.getCid()); // cell id
-        neighbor.put("pci", cell.getCid()); // physical cell id
-        neighbor.put("tac", cell.getLac()); // location area code
-        neighbor.put("fcn", cell.getArfcn()); // absolute radio frequency channel number
-        neighbor.put("dbm", signal.getDbm()); // signal strength in dBm
-        neighbor.put("level", signal.getLevel()); // signal level
-        neighbor.put("asuLevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
-        return neighbor;
-    }
-
-    @NonNull
-    private static JSONObject getWcdmaNeighborObject(CellIdentityWcdma cell, CellSignalStrengthWcdma signal)
-            throws JSONException {
-        JSONObject neighbor = new JSONObject();
-        neighbor.put("cid", cell.getCid()); // cell id
-        neighbor.put("pci", cell.getCid()); // physical cell id
-        neighbor.put("tac", cell.getLac()); // location area code
-        neighbor.put("fcn", cell.getUarfcn()); // UTRA Absolute Radio Frequency Channel Number
-        neighbor.put("dbm", signal.getDbm()); // signal strength in dBm
-        neighbor.put("level", signal.getLevel()); // signal level
-        neighbor.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
-        return neighbor;
-    }
-
-    @NonNull
-    private static JSONObject getLteNeighborObject(CellIdentityLte cell, CellSignalStrengthLte signal)
-            throws JSONException {
-        JSONObject neighbor = new JSONObject();
-        neighbor.put("cid", cell.getCi()); // cell id
-        neighbor.put("pci", cell.getPci()); // physical cell id
-        neighbor.put("tac", cell.getTac()); // tracking area code
-        neighbor.put("fcn", cell.getEarfcn()); // absolute radio frequency channel number
-        neighbor.put("dbm", signal.getDbm()); // signal strength in dBm
-        neighbor.put("level", signal.getLevel()); // signal level
-        neighbor.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
-        return neighbor;
-    }
-
-    @NonNull
-    private static JSONObject getNrNeighborObject(CellIdentityNr cell, CellSignalStrengthNr signal)
-            throws JSONException {
-        JSONObject neighbor = new JSONObject();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            neighbor.put("cid", cell.getNci()); // cell id
-            neighbor.put("pci", cell.getPci()); // physical cell id
-            neighbor.put("tac", cell.getTac()); // tracking area code
-            neighbor.put("fcn", cell.getNrarfcn()); // new radio absolute radio frequency channel number
-        }
-        neighbor.put("dbm", signal.getDbm()); // signal strength in dBm
-        neighbor.put("level", signal.getLevel()); // signal level
-        neighbor.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
-        return neighbor;
-    }
 
     private long previousRxBytes = 0;
     private long previousTxBytes = 0;
@@ -781,5 +529,6 @@ public class SignalStrengthPlugin extends Plugin {
         }
         return "No Connection";
     }
+
 
 }
