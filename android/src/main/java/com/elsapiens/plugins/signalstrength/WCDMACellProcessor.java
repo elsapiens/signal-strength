@@ -1,20 +1,11 @@
 package com.elsapiens.plugins.signalstrength;
-
-import android.os.Build;
 import android.telephony.CellIdentityWcdma;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrengthWcdma;
-
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
-
 import com.getcapacitor.JSObject;
-
 import org.json.JSONArray;
-
 public class WCDMACellProcessor implements CellProcessor {
-
-    @RequiresApi(api = Build.VERSION_CODES.R) // API 18+ required
     @Override
     public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
         CellIdentityWcdma cell = (CellIdentityWcdma) cellInfo.getCellIdentity();

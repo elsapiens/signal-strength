@@ -1,19 +1,24 @@
 package com.elsapiens.plugins.signalstrength;
-
-import android.os.Build;
 import android.telephony.CellIdentityLte;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrengthLte;
-
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
-
 import com.getcapacitor.JSObject;
-
 import org.json.JSONArray;
-
 public class LteCellProcessor implements CellProcessor {
-    @RequiresApi(api = Build.VERSION_CODES.R)
+    static Object[][] earfcnBands = {
+            {0, 599, "L1 (2100 MHz)", "1920–1980 MHz", "2110–2170 MHz"},
+            {600, 1199, "L2 (1900 MHz)", "1850–1910 MHz", "1930–1990 MHz"},
+            {1200, 1949, "L3 (1800 MHz)", "1710–1785 MHz", "1805–1880 MHz"},
+            {1950, 2399, "L4 (AWS 1700/2100 MHz)", "1710–1755 MHz", "2110–2155 MHz"},
+            {2400, 2649, "L5 (850 MHz)", "824–849 MHz", "869–894 MHz"},
+            {3450, 3799, "L8 (900 MHz)", "880–915 MHz", "925–960 MHz"},
+            {23000, 23999, "L40 (2300 MHz)", "2300–2400 MHz", "2300–2400 MHz"},
+            {39650, 41589, "L41 (2500 MHz)", "2496–2690 MHz", "2496–2690 MHz"},
+            {27500, 27999, "L45 (1500 MHz)", "1447–1467 MHz", "1447–1467 MHz"},
+            {28000, 28999, "L46 (5200 MHz)", "5150–5925 MHz", "5150–5925 MHz"},
+    };
+
     @Override
     public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
         CellIdentityLte cell = (CellIdentityLte) cellInfo.getCellIdentity();
@@ -69,8 +74,6 @@ public class LteCellProcessor implements CellProcessor {
         neighbor.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
         return neighbor;
     }
-
-
     private static void putIfValid(JSObject json, String key, Object value) {
         if (value instanceof Integer) {
             if ((int) value != Integer.MAX_VALUE) {
@@ -85,46 +88,15 @@ public class LteCellProcessor implements CellProcessor {
         String uplinkFrequency = "Unknown Uplink";
         String downlinkFrequency = "Unknown Downlink";
 
-        if (earfcn >= 0 && earfcn <= 599) {
-            bandName = "L1 (2100 MHz)";
-            uplinkFrequency = "1920–1980 MHz";
-            downlinkFrequency = "2110–2170 MHz";
-        } else if (earfcn >= 600 && earfcn <= 1199) {
-            bandName = "L2 (1900 MHz)";
-            uplinkFrequency = "1850–1910 MHz";
-            downlinkFrequency = "1930–1990 MHz";
-        } else if (earfcn >= 1200 && earfcn <= 1949) {
-            bandName = "L3 (1800 MHz)";
-            uplinkFrequency = "1710–1785 MHz";
-            downlinkFrequency = "1805–1880 MHz";
-        } else if (earfcn >= 1950 && earfcn <= 2399) {
-            bandName = "L4 (AWS 1700/2100 MHz)";
-            uplinkFrequency = "1710–1755 MHz";
-            downlinkFrequency = "2110–2155 MHz";
-        } else if (earfcn >= 2400 && earfcn <= 2649) {
-            bandName = "L5 (850 MHz)";
-            uplinkFrequency = "824–849 MHz";
-            downlinkFrequency = "869–894 MHz";
-        } else if (earfcn >= 3450 && earfcn <= 3799) {
-            bandName = "L8 (900 MHz)";
-            uplinkFrequency = "880–915 MHz";
-            downlinkFrequency = "925–960 MHz";
-        } else if (earfcn >= 23000 && earfcn <= 23999) {
-            bandName = "L40 (2300 MHz)";
-            uplinkFrequency = "2300–2400 MHz";
-            downlinkFrequency = "2300–2400 MHz"; // TDD Band
-        } else if (earfcn >= 39650 && earfcn <= 41589) {
-            bandName = "L41 (2500 MHz)";
-            uplinkFrequency = "2496–2690 MHz";
-            downlinkFrequency = "2496–2690 MHz"; // TDD Band
-        } else if (earfcn >= 27500 && earfcn <= 27999) {
-            bandName = "L45 (1500 MHz)";
-            uplinkFrequency = "1447–1467 MHz";
-            downlinkFrequency = "1447–1467 MHz"; // TDD Band
-        } else if (earfcn >= 28000 && earfcn <= 28999) {
-            bandName = "L46 (5200 MHz)";
-            uplinkFrequency = "5150–5925 MHz";
-            downlinkFrequency = "5150–5925 MHz"; // TDD Band
+        for (Object[] band : earfcnBands) {
+            int lowerBound = (int) band[0];
+            int upperBound = (int) band[1];
+            if (earfcn >= lowerBound && earfcn <= upperBound) {
+                bandName = (String) band[2];
+                uplinkFrequency = (String) band[3];
+                downlinkFrequency = (String) band[4];
+                break;
+            }
         }
 
         json.put("band", bandName);

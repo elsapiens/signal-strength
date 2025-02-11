@@ -49,9 +49,12 @@ export interface CurrentCellInfo {
   mnc?: string; // Mobile Network Code
   operator?: string; // Operator Name
   cid?: number; // Cell ID
+  nci?: number; // NR Cell ID
   pci?: number; // Physical Cell ID
   tac?: number; // Tracking Area Code / Location Area Code
+  lac?: number; // Location Area Code
   arfcn?: number; // Absolute Radio Frequency Channel Number
+  fcn?: number; // Frequency Channel Number (GSM)
   dbm?: number; // Signal strength in dBm
   asulevel?: number; // Arbitrary Strength Unit (ASU)
   level?: number; // Signal level
