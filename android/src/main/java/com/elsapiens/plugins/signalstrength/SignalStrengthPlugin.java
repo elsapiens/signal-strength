@@ -7,7 +7,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -30,6 +29,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -42,13 +43,24 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(name = "SignalStrength", permissions = {
-        @Permission(alias = "fineLocation", strings = { Manifest.permission.ACCESS_FINE_LOCATION }),
-        @Permission(alias = "coarseLocation", strings = { Manifest.permission.ACCESS_COARSE_LOCATION }),
-        @Permission(alias = "backgroundLocation", strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION }),
-        @Permission(alias = "phoneState", strings = { Manifest.permission.READ_PHONE_STATE }),
-        @Permission(alias = "networkState", strings = { Manifest.permission.ACCESS_NETWORK_STATE }),
-        @Permission(alias = "phoneNumbers", strings = { Manifest.permission.READ_PHONE_NUMBERS }),
-        @Permission(alias = "wifiState", strings = { Manifest.permission.ACCESS_WIFI_STATE }),
+        @Permission(alias = "location", strings = {
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        }),
+        @Permission(alias = "backgroundLocation", strings = {
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        }),
+        @Permission(alias = "phone", strings = {
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.CALL_PHONE,
+                Manifest.permission.ANSWER_PHONE_CALLS
+        }),
+        @Permission(alias = "networkState", strings = {
+                Manifest.permission.ACCESS_NETWORK_STATE,
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.ACCESS_WIFI_STATE,
+                Manifest.permission.READ_PHONE_NUMBERS
+        }),
 })
 public class SignalStrengthPlugin extends Plugin {
     private TelephonyManager telephonyManager;
@@ -60,29 +72,24 @@ public class SignalStrengthPlugin extends Plugin {
     private boolean isNetworkSpeedMonitoring = false;
     private static final String TAG = "SignalStrength";
     private MyTelephonyCallback telephonyCallback;
-
     @Override
     protected void handleOnStart() {
         super.handleOnStart();
     }
-
     @Override
     protected void handleOnStop() {
         super.handleOnStop();
         unregisterCellInfoListener();
     }
 
-    @SuppressLint("MissingPermission")
     @PluginMethod
     public void startMonitoring(PluginCall call) {
         requestedTechnology = call.getString("technology", "All");
         if (isMissingRequiredPermissions(getContext())) {
-            requestPermissions();
-            call.reject("Required permissions are missing");
-            return;
+            requestPermissions(call, "registerCellInfoListener");
+        }else {
+            registerCellInfoListener(call);
         }
-        registerCellInfoListener();
-        call.resolve();
     }
 
     @PluginMethod
@@ -96,13 +103,19 @@ public class SignalStrengthPlugin extends Plugin {
         call.resolve();
     }
 
-    private void registerCellInfoListener() {
+    @PermissionCallback
+    private void registerCellInfoListener(PluginCall call) {
         if (registerCellInfoListenerRunning) {
-            return;
+            call.reject("Cell info listener is already running");
         } else if (isMissingRequiredPermissions(getContext())) {
-            requestPermissions();
-            return;
+            requestPermissions(call, "executeSignalRegistration");
+        }else{
+            executeSignalRegistration(call);
         }
+    }
+
+    @PermissionCallback
+    private void executeSignalRegistration(PluginCall call) {
         getCurrentNetworkSpeed();
         Context context = getContext();
         if (context != null) {
@@ -128,6 +141,7 @@ public class SignalStrengthPlugin extends Plugin {
         registerCellInfoListenerRunning = true;
         scheduler = Executors.newScheduledThreadPool(1);
         scheduler.scheduleWithFixedDelay(new SignalStrengthTask(), 0, 100, TimeUnit.MILLISECONDS); // Every 1 second
+        call.resolve();
     }
 
     private class SignalStrengthTask implements Runnable {
@@ -202,30 +216,16 @@ public class SignalStrengthPlugin extends Plugin {
             handleCellInfoChanged(cellInfoList);
         }
     }
-
     private boolean isMissingRequiredPermissions(Context context) {
         return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_WIFI_STATE) != PackageManager.PERMISSION_GRANTED;
 
     }
-
-    private void requestPermissions() {
+    private void requestPermissions(PluginCall call, String methodName) {
+        Log.e("SignalStrength", "Requesting permissions for " + methodName);
         if (getActivity() != null) {
-            ActivityCompat.requestPermissions(getActivity(), new String[] {
-                    Manifest.permission.ACCESS_NETWORK_STATE,
-                    Manifest.permission.READ_PHONE_NUMBERS,
-                    Manifest.permission.ACCESS_WIFI_STATE,
-                    Manifest.permission.CALL_PHONE,
-                    Manifest.permission.ANSWER_PHONE_CALLS,
-                    Manifest.permission.MODIFY_PHONE_STATE,
-                    Manifest.permission.CALL_PRIVILEGED,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-                    Manifest.permission.READ_PHONE_STATE
-            }, 1);
+            requestPermissionForAliases(new String[]{"location", "backgroundLocation", "phone", "networkState"}, call, methodName);
         }
     }
-
     @SuppressLint("MissingPermission")
     private String getNetworkType() {
         int networkType = telephonyManager.getDataNetworkType();
@@ -285,11 +285,13 @@ public class SignalStrengthPlugin extends Plugin {
     public void makeCall(PluginCall call) {
         if (ContextCompat.checkSelfPermission(getContext(),
                 Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            requestCallPermission(getActivity());
-            call.reject("Call permission is missing");
-            return;
+            requestPermissions(call, "executeMakeCall");
+        }else{
+            executeMakeCall(call);
         }
-
+    }
+    @PermissionCallback
+    private void executeMakeCall(PluginCall call) {
         String number = call.getString("number");
         if (number == null || number.isEmpty()) {
             call.reject("Phone number is missing");
@@ -301,6 +303,10 @@ public class SignalStrengthPlugin extends Plugin {
             Uri uri = Uri.fromParts("tel", number, null);
             Bundle extras = new Bundle();
             extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true);
+            if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                call.reject("Permission Denied");
+                return;
+            }
             telecomManager.placeCall(uri, extras);
             call.resolve();
         } else {
@@ -313,8 +319,7 @@ public class SignalStrengthPlugin extends Plugin {
         try {
             Context context = getContext();
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ANSWER_PHONE_CALLS}, 1);
-                call.reject("Permission is missing");
+                call.reject("Permission Denied");
                 return;
             }
 
@@ -343,17 +348,6 @@ public class SignalStrengthPlugin extends Plugin {
 
     private JSObject getNetworkInfo() {
         return new JSObject();
-    }
-
-    public void requestCallPermission(Activity activity) {
-        if (ContextCompat.checkSelfPermission(activity,
-                Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(activity, new String[] {
-                    Manifest.permission.CALL_PHONE,
-                    Manifest.permission.ANSWER_PHONE_CALLS,
-                    Manifest.permission.READ_PHONE_STATE
-            }, 1);
-        }
     }
 
     private String getNetworkVoiceType() {
@@ -462,9 +456,6 @@ public class SignalStrengthPlugin extends Plugin {
             result.put("speed", new JSObject().put("download", downloadSpeedKbps).put("upload", uploadSpeedKbps));
         }
     }
-
-
-
 
     private long previousRxBytes = 0;
     private long previousTxBytes = 0;

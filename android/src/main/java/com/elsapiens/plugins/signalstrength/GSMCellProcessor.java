@@ -32,11 +32,17 @@ public class GSMCellProcessor implements CellProcessor {
                 putIfValid(currentCellData, "cid", cell.getCid()); // Cell ID
                 putIfValid(currentCellData, "bsic", cell.getBsic()); // Base Station Identity Code
                 putIfValid(currentCellData, "arfcn", cell.getArfcn()); // Frequency Number
+                int rxLev = signal.getDbm();
+                putIfValid(currentCellData, "rxlev", rxLev); // Signal strength in dBm
                 int ber = signal.getBitErrorRate();
                 if (ber >= 0 && ber <= 99) {
                     putIfValid(currentCellData, "ber", ber); // Bit Error Rate
+                    int rxQual = calculateRxQual(ber);
+                    putIfValid(currentCellData, "rxqual", rxQual); // Signal Quality (0-7)
+                }else{
+                    putIfValid(currentCellData, "rxqual", estimateRxQualFromRSSI(rxLev)); // Signal Quality (0-7)
                 }
-                putIfValid(currentCellData, "dbm", signal.getDbm()); // Signal strength in dBm
+                //calculate rx Quality
                 putIfValid(currentCellData, "asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
                 putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
                 putBandFromARFCN(currentCellData, cell.getArfcn()); // Determine GSM Band
@@ -54,7 +60,15 @@ public class GSMCellProcessor implements CellProcessor {
         neighbor.put("cid", cell.getCid()); // Cell ID
         neighbor.put("bsic", cell.getBsic()); // Base Station Identity Code
         neighbor.put("arfcn", cell.getArfcn()); // Frequency Number
-        neighbor.put("dbm", signal.getDbm()); // Signal strength in dBm
+        neighbor.put("rxlev", signal.getDbm()); // Signal strength in dBm
+        int ber = signal.getBitErrorRate();
+        if (ber >= 0 && ber <= 99) {
+            neighbor.put("ber", ber); // Bit Error Rate
+            int rxQual = calculateRxQual(ber);
+            neighbor.put("rxqual", rxQual); // Signal Quality (0-7)
+        }else{
+            neighbor.put("rxqual", estimateRxQualFromRSSI(signal.getDbm())); // Signal Quality (0-7)
+        }
         neighbor.put("level", signal.getLevel()); // Signal Level (0-4)
         neighbor.put("asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
         return neighbor;
@@ -85,5 +99,37 @@ public class GSMCellProcessor implements CellProcessor {
         json.put("band", bandName);
         json.put("uplink_frequency", uplinkFrequency);
         json.put("downlink_frequency", downlinkFrequency);
+    }
+    private static int calculateRxQual(int ber) {
+        if (ber == Integer.MAX_VALUE || ber < 0) {
+            return -1; // Invalid BER
+        } else if (ber <= 20) {
+            return 0;
+        } else if (ber <= 40) {
+            return 1;
+        } else if (ber <= 80) {
+            return 2;
+        } else if (ber <= 160) {
+            return 3;
+        } else if (ber <= 320) {
+            return 4;
+        } else if (ber <= 640) {
+            return 5;
+        } else if (ber <= 1280) {
+            return 6;
+        } else {
+            return 7;
+        }
+    }
+
+    private static int estimateRxQualFromRSSI(int rssi) {
+        if (rssi >= -70) return 0;
+        if (rssi >= -80) return 1;
+        if (rssi >= -85) return 2;
+        if (rssi >= -90) return 3;
+        if (rssi >= -95) return 4;
+        if (rssi >= -100) return 5;
+        if (rssi >= -107) return 6;
+        return 7; // Worst quality
     }
 }

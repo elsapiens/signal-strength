@@ -42,7 +42,7 @@ public class LteCellProcessor implements CellProcessor {
                 putIfValid(currentCellData, "tac", cell.getTac());
                 putIfValid(currentCellData, "earfcn", cell.getEarfcn());
                 putIfValid(currentCellData, "arfcn", cell.getEarfcn());
-                putIfValid(currentCellData, "dbm", signal.getDbm());
+                putIfValid(currentCellData, "rxlev", signal.getDbm());
                 putIfValid(currentCellData, "asulevel", signal.getAsuLevel());
                 putIfValid(currentCellData, "level", signal.getLevel());
                 putIfValid(currentCellData, "rsrp", signal.getRsrp());
@@ -69,7 +69,9 @@ public class LteCellProcessor implements CellProcessor {
         neighbor.put("pci", cell.getPci()); // physical cell id
         neighbor.put("tac", cell.getTac()); // tracking area code
         neighbor.put("arfcn", cell.getEarfcn()); // absolute radio frequency channel number
-        neighbor.put("dbm", signal.getDbm()); // signal strength in dBm
+        neighbor.put("rsrp", signal.getRsrp()); // reference signal received power
+        neighbor.put("rsrq", signal.getRsrq()); // reference signal received quality
+        neighbor.put("rssi", signal.getRssi()); // reference signal strength indicator
         neighbor.put("level", signal.getLevel()); // signal level
         neighbor.put("asulevel", signal.getAsuLevel()); // signal strength in ASU (arbitrary strength unit)
         return neighbor;

@@ -89,8 +89,8 @@ public class NrCellProcessor implements CellProcessor {
         long gNodeB = nci >> 10;
         long cellId = nci & 0x3FF;
         neighbor.put("nci", nci); // Full NR Cell ID
-        neighbor.put("gnodebId", gNodeB); // gNodeB ID
         neighbor.put("cellId", cellId); // Cell ID
+        neighbor.put("gnodebId", gNodeB); // gNodeB ID
         neighbor.put("pci", cell.getPci()); // Physical Cell ID
         neighbor.put("tac", cell.getTac()); // Tracking Area Code
         neighbor.put("nrarfcn", cell.getNrarfcn()); // Absolute Frequency Number
