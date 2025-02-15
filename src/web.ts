@@ -23,6 +23,24 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
   private intervalId: NodeJS.Timeout | null = null;
 
   async openNetworkSettings(): Promise<void> {
+    let networkType: NetworkType;
+    switch (Math.floor(Math.random() * 4)) {
+      case 0:
+        networkType = NetworkType.FiveG;
+        break;
+      case 1:
+        networkType = NetworkType.FourG;
+        break;
+      case 2:
+        networkType = NetworkType.ThreeG;
+        break;
+      case 3:
+        networkType = NetworkType.TwoG;
+        break;
+      default:
+        networkType = NetworkType.UNKNOWN;
+    }
+    this.setNetworkType({ networkType });
     console.log('openNetworkSettings');
   }
 
