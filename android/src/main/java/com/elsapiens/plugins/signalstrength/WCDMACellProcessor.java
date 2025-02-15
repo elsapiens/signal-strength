@@ -1,16 +1,30 @@
 package com.elsapiens.plugins.signalstrength;
+import android.telephony.CellIdentity;
 import android.telephony.CellIdentityWcdma;
 import android.telephony.CellInfo;
+import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthWcdma;
 import androidx.annotation.NonNull;
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
-public class WCDMACellProcessor implements CellProcessor {
+public class WCDMACellProcessor extends CellProcessor {
+
+    static Object[][] wcdmaBands = {
+            {10562, 10838, "Band 1 (2100 MHz)", "1920–1980 MHz", "2110–2170 MHz"},
+            {9662, 9938, "Band 2 (1900 MHz)", "1850–1910 MHz", "1930–1990 MHz"},
+            {1162, 1513, "Band 5 (850 MHz)", "824–849 MHz", "869–894 MHz"},
+            {2937, 3088, "Band 8 (900 MHz)", "880–915 MHz", "925–960 MHz"},
+            {412, 687, "Band 4 (AWS 1700/2100 MHz)", "1710–1755 MHz", "2110–2155 MHz"},
+            {2012, 2338, "Band 3 (1800 MHz)", "1710–1785 MHz", "1805–1880 MHz"},
+            {2237, 2563, "Band 9 (1800 MHz)", "1749.9–1784.9 MHz", "1844.9–1879.9 MHz"},
+            {3112, 3388, "Band 10 (AWS 1700/2100 MHz)", "1710–1770 MHz", "2110–2170 MHz"},
+            {3712, 3787, "Band 11 (1500 MHz)", "1427.9–1447.9 MHz", "1475.9–1495.9 MHz"},
+            {3842, 3903, "Band 19 (850 MHz)", "830–845 MHz", "875–890 MHz"},
+    };
     @Override
     public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
         CellIdentityWcdma cell = (CellIdentityWcdma) cellInfo.getCellIdentity();
         CellSignalStrengthWcdma signal = (CellSignalStrengthWcdma) cellInfo.getCellSignalStrength();
-
         try {
             if (cellInfo.isRegistered()) {
                 putIfValid(currentCellData, "type", "WCDMA");
@@ -18,17 +32,14 @@ public class WCDMACellProcessor implements CellProcessor {
                 putIfValid(currentCellData, "mcc", cell.getMccString());
                 putIfValid(currentCellData, "mnc", cell.getMncString());
                 putIfValid(currentCellData, "operator", cell.getOperatorAlphaLong());
-
-                putIfValid(currentCellData, "lac", cell.getLac()); // Location Area Code
                 putIfValid(currentCellData, "cid", cell.getCid()); // Cell ID
+                putIfValid(currentCellData, "cellId", cell.getCid()); // Cell ID
+                putIfValid(currentCellData, "lac", cell.getLac()); // Location Area Code
                 putIfValid(currentCellData, "psc", cell.getPsc()); // Primary Scrambling Code
                 putIfValid(currentCellData, "uarfcn", cell.getUarfcn()); // Frequency Number
-
-                // Signal Strength Metrics
-                putIfValid(currentCellData, "dbm", signal.getDbm()); // Signal strength in dBm
+                putIfValid(currentCellData, "rxlev", signal.getDbm()); // Signal strength in dBm
                 putIfValid(currentCellData, "asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
                 putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
-
                 putBandFromUARFCN(currentCellData, cell.getUarfcn()); // Determine UMTS Band
             } else {
                 JSObject neighbor = getNeighborObject(cell, signal);
@@ -39,77 +50,35 @@ public class WCDMACellProcessor implements CellProcessor {
     }
 
     @NonNull
-    private static JSObject getNeighborObject(CellIdentityWcdma cell, CellSignalStrengthWcdma signal) {
+    protected JSObject getNeighborObject(CellIdentity cell, CellSignalStrength signal) {
+        CellIdentityWcdma wcdmaCell = (CellIdentityWcdma) cell;
         JSObject neighbor = new JSObject();
-        neighbor.put("lac", cell.getLac()); // Location Area Code
-        neighbor.put("cid", cell.getCid()); // Cell ID
-        neighbor.put("psc", cell.getPsc()); // Primary Scrambling Code
-        neighbor.put("uarfcn", cell.getUarfcn()); // Frequency Number
-        neighbor.put("dbm", signal.getDbm()); // Signal strength in dBm
-        neighbor.put("level", signal.getLevel()); // Signal Level (0-4)
-        neighbor.put("asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
+        putIfValid(neighbor, "cid", wcdmaCell.getCid());
+        putIfValid(neighbor, "cellId", wcdmaCell.getCid());
+        putIfValid(neighbor, "lac", wcdmaCell.getLac());
+        putIfValid(neighbor, "psc", wcdmaCell.getPsc());
+        putIfValid(neighbor, "uarfcn", wcdmaCell.getUarfcn());
+        putIfValid(neighbor, "rxlev", signal.getDbm());
+        putIfValid(neighbor, "asulevel", signal.getAsuLevel());
         return neighbor;
-    }
-
-    private static void putIfValid(JSObject json, String key, Object value) {
-        if (value instanceof Integer) {
-            if ((int) value != Integer.MAX_VALUE) {
-                json.put(key, value);
-            }
-        } else if (value != null) {
-            json.put(key, value);
-        }
     }
 
     private static void putBandFromUARFCN(JSObject json, int uarfcn) {
         String bandName = "Unknown Band";
         String uplinkFrequency = "Unknown Uplink";
         String downlinkFrequency = "Unknown Downlink";
-
-        if (uarfcn >= 10562 && uarfcn <= 10838) {
-            bandName = "Band 1 (2100 MHz)";
-            uplinkFrequency = "1920–1980 MHz";
-            downlinkFrequency = "2110–2170 MHz";
-        } else if (uarfcn >= 9662 && uarfcn <= 9938) {
-            bandName = "Band 2 (1900 MHz)";
-            uplinkFrequency = "1850–1910 MHz";
-            downlinkFrequency = "1930–1990 MHz";
-        } else if (uarfcn >= 1162 && uarfcn <= 1513) {
-            bandName = "Band 5 (850 MHz)";
-            uplinkFrequency = "824–849 MHz";
-            downlinkFrequency = "869–894 MHz";
-        } else if (uarfcn >= 2937 && uarfcn <= 3088) {
-            bandName = "Band 8 (900 MHz)";
-            uplinkFrequency = "880–915 MHz";
-            downlinkFrequency = "925–960 MHz";
-        } else if (uarfcn >= 412 && uarfcn <= 687) {
-            bandName = "Band 4 (AWS 1700/2100 MHz)";
-            uplinkFrequency = "1710–1755 MHz";
-            downlinkFrequency = "2110–2155 MHz";
-        } else if (uarfcn >= 2012 && uarfcn <= 2338) {
-            bandName = "Band 3 (1800 MHz)";
-            uplinkFrequency = "1710–1785 MHz";
-            downlinkFrequency = "1805–1880 MHz";
-        } else if (uarfcn >= 2237 && uarfcn <= 2563) {
-            bandName = "Band 9 (1800 MHz)";
-            uplinkFrequency = "1749.9–1784.9 MHz";
-            downlinkFrequency = "1844.9–1879.9 MHz";
-        } else if (uarfcn >= 3112 && uarfcn <= 3388) {
-            bandName = "Band 10 (AWS 1700/2100 MHz)";
-            uplinkFrequency = "1710–1770 MHz";
-            downlinkFrequency = "2110–2170 MHz";
-        } else if (uarfcn >= 3712 && uarfcn <= 3787) {
-            bandName = "Band 11 (1500 MHz)";
-            uplinkFrequency = "1427.9–1447.9 MHz";
-            downlinkFrequency = "1475.9–1495.9 MHz";
-        } else if (uarfcn >= 3842 && uarfcn <= 3903) {
-            bandName = "Band 19 (850 MHz)";
-            uplinkFrequency = "830–845 MHz";
-            downlinkFrequency = "875–890 MHz";
+        for (Object[] band : wcdmaBands) {
+            int start = (int) band[0];
+            int end = (int) band[1];
+            if (uarfcn >= start && uarfcn <= end) {
+                bandName = (String) band[2];
+                uplinkFrequency = (String) band[3];
+                downlinkFrequency = (String) band[4];
+                break;
+            }
         }
-
         json.put("band", bandName);
-        json.put("uplink_frequency", uplinkFrequency);
-        json.put("downlink_frequency", downlinkFrequency);
+        json.put("uplinkFrequency", uplinkFrequency);
+        json.put("downlinkFrequency", downlinkFrequency);
     }
 }

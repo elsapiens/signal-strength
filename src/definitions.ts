@@ -50,25 +50,32 @@ export interface CurrentCellInfo {
   operator?: string; // Operator Name
   cid?: number; // Cell ID
   nci?: number; // NR Cell ID
+  cellId?: number; // Cell ID
+  bsic?: number; // Base Station Identity Code (GSM)
   pci?: number; // Physical Cell ID
   tac?: number; // Tracking Area Code / Location Area Code
   lac?: number; // Location Area Code
   arfcn?: number; // Absolute Radio Frequency Channel Number
-  fcn?: number; // Frequency Channel Number (GSM)
-  dbm?: number; // Signal strength in dBm
+  uarfcn?: number; // UTRA Absolute Radio Frequency Channel Number (WCDMA)
+  earfcn?: number; // E-UTRA Absolute Radio Frequency Channel Number (LTE)
+  nrarfcn?: number; // NR Absolute Radio Frequency Channel Number
   asulevel?: number; // Arbitrary Strength Unit (ASU)
   level?: number; // Signal level
+  ta?: number; // Timing Advance (GSM)
   enodebId?: number; // eNodeB ID (LTE)
   gnodebId?: number; // gNodeB ID (5G)
   // Technology-specific fields:
   rsrp?: number; // Reference Signal Received Power (LTE/5G)
   rsrq?: number; // Reference Signal Received Quality (LTE/5G)
+  rxlev?: number; // Received Signal Strength Indicator (GSM)
+  rxqual?: number; // Received Signal Quality (GSM)
   sssinr?: number; // Signal-to-Noise and Interference Ratio (5G)
   band?: number | number[]; // Bandwidth (LTE/5G)
   cqi?: number | number[]; // Channel Quality Indicator (LTE/5G)
   ecno?: number; // Energy per Chip to Noise Ratio (WCDMA)
   psc?: number; // Primary Scrambling Code (WCDMA)
   rssi?: number; // Reference Signal Strength Indicator (LTE)
+  rssnr?: number; // Reference Signal to Noise Ratio (LTE)
   ber?: number; // Bit Error Rate (GSM)
 }
 
@@ -80,12 +87,30 @@ export interface NeighborCellInfo {
   mcc?: string; // Mobile Country Code
   mnc?: string; // Mobile Network Code
   cid?: number; // Cell ID
+  nci?: number; // NR Cell ID
+  cellId?: number; // Cell ID
   pci?: number; // Physical Cell ID
   tac?: number; // Tracking Area Code / Location Area Code
+  lac?: number; // Location Area Code
+  bsic?: number; // Base Station Identity Code (GSM)
+  rxlev?: number; // Received Signal Strength Indicator (GSM)
+  ber?: number; // Bit Error Rate (GSM)
+  rxqual?: number; // Received Signal Quality (GSM)
+  enodebId?: number; // eNodeB ID (LTE)
+  gnodebId?: number; // gNodeB ID (5G)
+  rsrp?: number; // Reference Signal Received Power (LTE/5G)
+  rsrq?: number; // Reference Signal Received Quality (LTE/5G)
+  rssi?: number; // Reference Signal Strength Indicator (LTE)
+  sssinr?: number; // Signal-to-Noise and Interference Ratio (5G)
   arfcn?: number; // Absolute Radio Frequency Channel Number
+  earfcn?: number; // E-UTRA Absolute Radio Frequency Channel Number (LTE)
+  uarfcn?: number; // UTRA Absolute Radio Frequency Channel Number (WCDMA)
+  narfcn?: number; // NR Absolute Radio Frequency Channel Number
   dbm?: number; // Signal strength in dBm
   asulevel?: number; // Arbitrary Strength Unit (ASU)
   level?: number; // Signal level
+  uplinkFrequency?: number; // Uplink Frequency 
+  downlinkFrequency?: number; // Downlink Frequency
 }
 
 export enum DataConnectionType {

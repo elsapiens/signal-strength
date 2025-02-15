@@ -1,12 +1,14 @@
 package com.elsapiens.plugins.signalstrength;
+import android.telephony.CellIdentity;
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellInfo;
+import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthGsm;
 import androidx.annotation.NonNull;
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
-public class GSMCellProcessor implements CellProcessor {
-    static Object[][] arfcnBands = {
+public class GSMCellProcessor extends CellProcessor {
+    private Object[][] arfcnBands = {
             {1, 124, "PGSM 900", "890–915 MHz", "935–960 MHz"},
             {0, 0, "E-GSM 900", "880–915 MHz", "925–960 MHz"},
             {955, 974, "E-GSM 900", "880–915 MHz", "925–960 MHz"},
@@ -27,23 +29,19 @@ public class GSMCellProcessor implements CellProcessor {
                 putIfValid(currentCellData, "mcc", cell.getMccString());
                 putIfValid(currentCellData, "mnc", cell.getMncString());
                 putIfValid(currentCellData, "operator", cell.getOperatorAlphaLong());
+                putIfValid(currentCellData, "cid", cell.getCid()); // Cell ID
+                putIfValid(currentCellData, "cellId", cell.getCid()); // Cell ID
                 putIfValid(currentCellData, "lac", cell.getLac()); // Location Area Code
                 putIfValid(currentCellData, "tac", cell.getLac()); // Tracking Area Code
-                putIfValid(currentCellData, "cid", cell.getCid()); // Cell ID
                 putIfValid(currentCellData, "bsic", cell.getBsic()); // Base Station Identity Code
                 putIfValid(currentCellData, "arfcn", cell.getArfcn()); // Frequency Number
-                int rxLev = signal.getDbm();
-                putIfValid(currentCellData, "rxlev", rxLev); // Signal strength in dBm
+                putIfValid(currentCellData, "rxlev", signal.getDbm()); // Signal strength in dBm
+                putIfValid(currentCellData, "ta", signal.getTimingAdvance()); // Timing Advance
                 int ber = signal.getBitErrorRate();
-                if (ber >= 0 && ber <= 99) {
-                    putIfValid(currentCellData, "ber", ber); // Bit Error Rate
-                    int rxQual = calculateRxQual(ber);
-                    putIfValid(currentCellData, "rxqual", rxQual); // Signal Quality (0-7)
-                }else{
-                    putIfValid(currentCellData, "rxqual", estimateRxQualFromRSSI(rxLev)); // Signal Quality (0-7)
+                if (ber >= 0 && ber <= 7) {
+                    currentCellData.put("rxqual", ber); // Bit Error Rate
                 }
-                //calculate rx Quality
-                putIfValid(currentCellData, "asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
+                putIfValidAsu(currentCellData, signal.getAsuLevel()); // Arbitrary Strength Unit
                 putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
                 putBandFromARFCN(currentCellData, cell.getArfcn()); // Determine GSM Band
             } else {
@@ -54,35 +52,29 @@ public class GSMCellProcessor implements CellProcessor {
         }
     }
     @NonNull
-    private static JSObject getNeighborObject(CellIdentityGsm cell, CellSignalStrengthGsm signal) {
+    public JSObject getNeighborObject(CellIdentity cell, CellSignalStrength signal) {
         JSObject neighbor = new JSObject();
-        neighbor.put("lac", cell.getLac()); // Location Area Code
-        neighbor.put("cid", cell.getCid()); // Cell ID
-        neighbor.put("bsic", cell.getBsic()); // Base Station Identity Code
-        neighbor.put("arfcn", cell.getArfcn()); // Frequency Number
-        neighbor.put("rxlev", signal.getDbm()); // Signal strength in dBm
-        int ber = signal.getBitErrorRate();
-        if (ber >= 0 && ber <= 99) {
-            neighbor.put("ber", ber); // Bit Error Rate
-            int rxQual = calculateRxQual(ber);
-            neighbor.put("rxqual", rxQual); // Signal Quality (0-7)
-        }else{
-            neighbor.put("rxqual", estimateRxQualFromRSSI(signal.getDbm())); // Signal Quality (0-7)
+        CellIdentityGsm gsmCell = (CellIdentityGsm) cell;
+        CellSignalStrengthGsm  gsmSignal = (CellSignalStrengthGsm) signal;
+        putIfValid(neighbor, "type", "GSM");
+        putIfValid(neighbor, "technology", "2G");
+        putIfValid(neighbor, "mcc", gsmCell.getMccString());
+        putIfValid(neighbor, "mnc", gsmCell.getMncString());
+        putIfValid(neighbor, "operator", gsmCell.getOperatorAlphaLong());
+        putIfValid(neighbor, "cid", gsmCell.getCid()); // Cell ID
+        putIfValid(neighbor, "cellId", gsmCell.getCid()); // Cell ID
+        putIfValid(neighbor, "lac", gsmCell.getLac()); // Location Area Code
+        putIfValid(neighbor, "bsic", gsmCell.getBsic()); // Base Station Identity Code
+        putIfValid(neighbor, "arfcn", gsmCell.getArfcn()); // Frequency Number
+        putIfValid(neighbor, "rxlev", signal.getDbm()); // Signal strength in dBm
+        int ber = gsmSignal.getBitErrorRate();
+        if (ber >= 0 && ber <= 7) {
+            neighbor.put("rxqual", ber); // Bit Error Rate
         }
-        neighbor.put("level", signal.getLevel()); // Signal Level (0-4)
-        neighbor.put("asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
+        putIfValidAsu(neighbor, gsmSignal.getAsuLevel()); // Arbitrary Strength Unit
         return neighbor;
     }
-    private static void putIfValid(JSObject json, String key, Object value) {
-        if (value instanceof Integer) {
-            if ((int) value != Integer.MAX_VALUE) {
-                json.put(key, value);
-            }
-        } else if (value != null) {
-            json.put(key, value);
-        }
-    }
-    private static void putBandFromARFCN(JSObject json, int arfcn) {
+    private void putBandFromARFCN(JSObject json, int arfcn) {
         String bandName = "Unknown Band";
         String uplinkFrequency = "Unknown Uplink";
         String downlinkFrequency = "Unknown Downlink";
@@ -97,39 +89,8 @@ public class GSMCellProcessor implements CellProcessor {
             }
         }
         json.put("band", bandName);
-        json.put("uplink_frequency", uplinkFrequency);
-        json.put("downlink_frequency", downlinkFrequency);
-    }
-    private static int calculateRxQual(int ber) {
-        if (ber == Integer.MAX_VALUE || ber < 0) {
-            return -1; // Invalid BER
-        } else if (ber <= 20) {
-            return 0;
-        } else if (ber <= 40) {
-            return 1;
-        } else if (ber <= 80) {
-            return 2;
-        } else if (ber <= 160) {
-            return 3;
-        } else if (ber <= 320) {
-            return 4;
-        } else if (ber <= 640) {
-            return 5;
-        } else if (ber <= 1280) {
-            return 6;
-        } else {
-            return 7;
-        }
+        json.put("uplinkFrequency", uplinkFrequency);
+        json.put("downlinkFrequency", downlinkFrequency);
     }
 
-    private static int estimateRxQualFromRSSI(int rssi) {
-        if (rssi >= -70) return 0;
-        if (rssi >= -80) return 1;
-        if (rssi >= -85) return 2;
-        if (rssi >= -90) return 3;
-        if (rssi >= -95) return 4;
-        if (rssi >= -100) return 5;
-        if (rssi >= -107) return 6;
-        return 7; // Worst quality
-    }
 }

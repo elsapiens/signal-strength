@@ -117,7 +117,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
       pci: Math.floor(Math.random() * 100),
       tac: Math.floor(Math.random() * 5000),
       arfcn: Math.floor(Math.random() * 2000),
-      dbm: -1 * (Math.floor(Math.random() * 50) + 50),
+      rxlev: -1 * (Math.floor(Math.random() * 50) + 50),
       asulevel: Math.floor(Math.random() * 30),
       level: Math.floor(Math.random() * 5),
       rsrp: -1 * (Math.floor(Math.random() * 50) + 80),
