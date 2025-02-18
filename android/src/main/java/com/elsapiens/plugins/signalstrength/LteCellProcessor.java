@@ -115,7 +115,7 @@ public class LteCellProcessor extends CellProcessor {
                 putIfValid(currentCellData, "cqi", signal.getCqi());
                 putIfValid(currentCellData, "ta", signal.getTimingAdvance());
                 putBandFromEARFCN(currentCellData, cell.getEarfcn());
-            } else {
+            } else if(cell.getCi() > 0 && cell.getCi() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
                 neighboringCells.put(neighbor);
             }
@@ -132,7 +132,7 @@ public class LteCellProcessor extends CellProcessor {
         if(neighbor.has("cid")) {
             int enodeb = lteCell.getCi() / 256;
             int lteCellId = lteCell.getCi() % 256;
-            neighbor.put("lteCellId", lteCellId); // Cell id
+            neighbor.put("cellId", lteCellId); // Cell id
             neighbor.put("enodebId", enodeb); // eNodeB id
         }
         neighbor.put("pci", lteCell.getPci()); // physical lteCell id

@@ -41,7 +41,7 @@ public class WCDMACellProcessor extends CellProcessor {
                 putIfValid(currentCellData, "asulevel", signal.getAsuLevel()); // Arbitrary Strength Unit
                 putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
                 putBandFromUARFCN(currentCellData, cell.getUarfcn()); // Determine UMTS Band
-            } else {
+            } else if (cell.getCid() > 0 && cell.getCid() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
                 neighboringCells.put(neighbor);
             }

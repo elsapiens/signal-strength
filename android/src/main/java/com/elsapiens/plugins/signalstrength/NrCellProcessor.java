@@ -84,7 +84,7 @@ public class NrCellProcessor extends CellProcessor {
                 }
 
                 putBandFromNRARFCN(currentCellData, cell.getNrarfcn()); // Determine 5G Band
-            } else {
+            } else if (cell.getNci() > 0 && cell.getNci() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
                 neighboringCells.put(neighbor);
             }

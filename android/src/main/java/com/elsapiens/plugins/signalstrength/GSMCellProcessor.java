@@ -44,7 +44,7 @@ public class GSMCellProcessor extends CellProcessor {
                 putIfValidAsu(currentCellData, signal.getAsuLevel()); // Arbitrary Strength Unit
                 putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
                 putBandFromARFCN(currentCellData, cell.getArfcn()); // Determine GSM Band
-            } else {
+            } else if (cell.getCid() > 0 && cell.getCid() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
                 neighboringCells.put(neighbor);
             }
