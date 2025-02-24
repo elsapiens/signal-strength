@@ -160,6 +160,7 @@ public class SignalStrengthPlugin extends Plugin {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private void handleCellInfoChanged(List<CellInfo> cellInfoList) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastUpdateTime < 900) {
@@ -193,6 +194,9 @@ public class SignalStrengthPlugin extends Plugin {
             putGeneralData(result);
             result.put("currentCell", currentCellData);
             result.put("neighboringCells", neighboringCells);
+            result.put("timestamp", currentTime);
+            result.put("networkType", getNetworkType());
+            result.put("networkTypeName", getNetworkTypeName(telephonyManager.getDataNetworkType()));
             notifyListeners("signalUpdate", result);
         }
     }
@@ -248,6 +252,39 @@ public class SignalStrengthPlugin extends Plugin {
             case TelephonyManager.NETWORK_TYPE_LTE, TelephonyManager.NETWORK_TYPE_IWLAN -> "4G";
             case TelephonyManager.NETWORK_TYPE_NR -> "5G";
             default -> "UNKNOWN";
+        };
+    }
+
+    public static String getNetworkTypeName(int networkType) {
+        return switch (networkType) {
+
+            case TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS (2G)";
+            case TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE (2G)";
+            case TelephonyManager.NETWORK_TYPE_CDMA -> "CDMA (2G)";
+            case TelephonyManager.NETWORK_TYPE_1xRTT -> "1xRTT (2G)";
+            case TelephonyManager.NETWORK_TYPE_IDEN -> "iDEN (2G)";
+            case TelephonyManager.NETWORK_TYPE_GSM -> "GSM (2G)";
+
+            case TelephonyManager.NETWORK_TYPE_UMTS -> "UMTS (3G)";
+            case TelephonyManager.NETWORK_TYPE_EVDO_0 -> "EVDO 0 (3G)";
+            case TelephonyManager.NETWORK_TYPE_EVDO_A -> "EVDO A (3G)";
+            case TelephonyManager.NETWORK_TYPE_EVDO_B -> "EVDO B (3G)";
+            case TelephonyManager.NETWORK_TYPE_HSDPA -> "HSDPA (3G)";
+            case TelephonyManager.NETWORK_TYPE_HSUPA -> "HSUPA (3G)";
+            case TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA (3G)";
+            case TelephonyManager.NETWORK_TYPE_EHRPD -> "eHRPD (3G)";
+            case TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA+ (3G)";
+            case TelephonyManager.NETWORK_TYPE_TD_SCDMA -> "TD-SCDMA (3G)";
+
+            case TelephonyManager.NETWORK_TYPE_LTE -> "LTE (4G)";
+            case TelephonyManager.NETWORK_TYPE_IWLAN -> "IWLAN (4G)";
+
+            case TelephonyManager.NETWORK_TYPE_NR -> "5G NR";
+
+            default -> {
+                Log.w("NetworkType", "Unknown network type: " + networkType);
+                yield "UNKNOWN (" + networkType + ")";
+            }
         };
     }
 
@@ -402,6 +439,8 @@ public class SignalStrengthPlugin extends Plugin {
                             callType = "3G TD-SCDMA";
                         } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_IWLAN) {
                             callType = "WiFi Calling";
+                        }else {
+                            callType = "Unknown";
                         }
                         break;
                 }

@@ -46,7 +46,7 @@ public class NrCellProcessor extends CellProcessor {
     public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
         CellIdentityNr cell = (CellIdentityNr) cellInfo.getCellIdentity();
         CellSignalStrengthNr signal = (CellSignalStrengthNr) cellInfo.getCellSignalStrength();
-
+        String technology = "NR";
         try {
             if (cellInfo.isRegistered()) {
                 currentCellData.put("type", "NR");
