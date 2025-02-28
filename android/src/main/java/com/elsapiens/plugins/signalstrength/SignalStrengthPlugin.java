@@ -1,5 +1,7 @@
 package com.elsapiens.plugins.signalstrength;
 
+import static androidx.core.content.ContextCompat.getSystemService;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -19,6 +21,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.telecom.Call;
 import android.telecom.TelecomManager;
 import android.telephony.*;
 import android.util.Log;
@@ -53,7 +56,8 @@ import java.util.concurrent.TimeUnit;
         @Permission(alias = "phone", strings = {
                 Manifest.permission.READ_PHONE_STATE,
                 Manifest.permission.CALL_PHONE,
-                Manifest.permission.ANSWER_PHONE_CALLS
+                Manifest.permission.ANSWER_PHONE_CALLS,
+                Manifest.permission.MANAGE_OWN_CALLS
         }),
         @Permission(alias = "networkState", strings = {
                 Manifest.permission.ACCESS_NETWORK_STATE,
@@ -406,7 +410,7 @@ public class SignalStrengthPlugin extends Plugin {
                     case TelephonyManager.NETWORK_TYPE_CDMA:
                     case TelephonyManager.NETWORK_TYPE_1xRTT:
                     case TelephonyManager.NETWORK_TYPE_IDEN:
-                        callType = "2G (Circuit-Switched)";
+                        callType = "2G";
                         break;
 
                     case TelephonyManager.NETWORK_TYPE_UMTS:
@@ -418,21 +422,21 @@ public class SignalStrengthPlugin extends Plugin {
                     case TelephonyManager.NETWORK_TYPE_HSPA:
                     case TelephonyManager.NETWORK_TYPE_EHRPD:
                     case TelephonyManager.NETWORK_TYPE_HSPAP:
-                        callType = "3G (CSFB)";
+                        callType = "3G";
                         break;
 
                     case TelephonyManager.NETWORK_TYPE_LTE:
-                        callType = "4G VoLTE (Voice over LTE)";
+                        callType = "4G VoLTE";
                         break;
 
                     case TelephonyManager.NETWORK_TYPE_NR:
-                        callType = "5G (Possibly VoNR)";
+                        callType = "5G VoNR";
                         break;
 
                     default:
                         // Handle unknown or newer network types
                         if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_BITMASK_LTE_CA) {
-                            callType = "4G LTE Carrier Aggregation";
+                            callType = "4G LTE CA";
                         } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_GSM) {
                             callType = "2G GSM";
                         } else if (voiceNetworkType == TelephonyManager.NETWORK_TYPE_TD_SCDMA) {
@@ -487,6 +491,9 @@ public class SignalStrengthPlugin extends Plugin {
         try {
             if (result.getBoolean("isOnCall")) {
                 result.put("callType", getNetworkVoiceType());
+                String callState = getCallStateName();
+                result.put("callState", callState);
+                
             }
         } catch (JSONException ignored) {}
         String networkType = getConnectionType(getContext());
@@ -559,6 +566,13 @@ public class SignalStrengthPlugin extends Plugin {
         }
         return "No Connection";
     }
-
-
+    private String getCallStateName() {
+        int callState = telephonyManager.getCallState();
+        return switch (callState) {
+            case TelephonyManager.CALL_STATE_IDLE -> "Idle";
+            case TelephonyManager.CALL_STATE_RINGING -> "Ringing";
+            case TelephonyManager.CALL_STATE_OFFHOOK -> "Offhook";
+            default -> "Unknown";
+        };
+    }
 }

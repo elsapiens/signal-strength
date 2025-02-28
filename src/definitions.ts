@@ -30,6 +30,8 @@ export interface SignalStrengthResult {
   isMultiSim?: boolean;
   simCount?: number;
   isOnCall?: boolean;
+  callState?: 'Dialing' | 'Ringing' | 'Offhook' | 'Idle';
+  callType?: '2G' | '3G' | '4G VoLTE' | '5G VoNR' | '4G LTE CA' | '2G GSM' | '3G TD-SCDMA' | 'WiFi Calling' | 'Unknown'
   dataConnectionType?: DataConnectionType;
   speed?: {
     download: number; // in Kbps
