@@ -72,6 +72,7 @@ export interface CurrentCellInfo {
   rxlev?: number; // Received Signal Strength Indicator (GSM)
   rxqual?: number; // Received Signal Quality (GSM)
   sssinr?: number; // Signal-to-Noise and Interference Ratio (5G)
+  sinr?: number; // Signal-to-Noise Ratio (LTE)
   band?: number | number[]; // Bandwidth (LTE/5G)
   cqi?: number | number[]; // Channel Quality Indicator (LTE/5G)
   ecno?: number; // Energy per Chip to Noise Ratio (WCDMA)

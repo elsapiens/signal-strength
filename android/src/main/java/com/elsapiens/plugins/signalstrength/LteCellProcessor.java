@@ -1,12 +1,18 @@
 package com.elsapiens.plugins.signalstrength;
+import android.content.Context;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityLte;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthLte;
+import android.telephony.TelephonyManager;
+
 import androidx.annotation.NonNull;
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
+
+import java.lang.reflect.Method;
+
 public class LteCellProcessor extends CellProcessor {
     Object[][] earfcnBands = {
             {0, 599, "2100", "1920-1980 MHz", "2110-2170 MHz", 60},
@@ -83,7 +89,7 @@ public class LteCellProcessor extends CellProcessor {
     };
 
     @Override
-    public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
+    public void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityLte cell = (CellIdentityLte) cellInfo.getCellIdentity();
         CellSignalStrengthLte signal = (CellSignalStrengthLte) cellInfo.getCellSignalStrength();
 
@@ -110,8 +116,12 @@ public class LteCellProcessor extends CellProcessor {
                 putIfValid(currentCellData, "rsrp", signal.getRsrp());
                 putIfValid(currentCellData, "rsrq", signal.getRsrq());
                 putIfValid(currentCellData, "rssi", signal.getRssi());
-                putSsSINR(currentCellData, signal.getRsrp(), signal.getRsrq());
+                int sinr = getSINR(telephonyManager);
+                putIfValid(currentCellData, "sinr", sinr);
                 putIfValid(currentCellData, "rssnr", signal.getRssnr());
+                if(sinr == Integer.MAX_VALUE && signal.getRssnr() != Integer.MAX_VALUE) {
+                    currentCellData.put("sinr", signal.getRssnr());
+                }
                 putIfValid(currentCellData, "cqi", signal.getCqi());
                 putIfValid(currentCellData, "ta", signal.getTimingAdvance());
                 putBandFromEARFCN(currentCellData, cell.getEarfcn());
@@ -166,11 +176,21 @@ public class LteCellProcessor extends CellProcessor {
         json.put("uplinkFrequency", uplinkFrequency);
         json.put("downlinkFrequency", downlinkFrequency);
     }
-    private void putSsSINR(JSObject json, int rsrp, int rsrq) {
-        if (rsrp == Integer.MAX_VALUE || rsrq == Integer.MAX_VALUE) {
-            return; // Invalid values
+    public int getSINR(TelephonyManager telephonyManager) {
+        int sinr = Integer.MAX_VALUE;
+        try {
+            Class<?> c = Class.forName("com.android.internal.telephony.PhoneFactory");
+            Method getServiceStateTracker = c.getDeclaredMethod("getServiceStateTracker");
+            getServiceStateTracker.setAccessible(true);
+            Object serviceStateTracker = getServiceStateTracker.invoke(null);
+
+            Class<?> sstClass = Class.forName("com.android.internal.telephony.ServiceStateTracker");
+            Method getSINRMethod = sstClass.getDeclaredMethod("getSINR");
+            getSINRMethod.setAccessible(true);
+            sinr = (int) getSINRMethod.invoke(serviceStateTracker);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        double sssinr = rsrp - rsrq;
-        json.put("sssinr", sssinr);
+        return sinr;
     }
 }

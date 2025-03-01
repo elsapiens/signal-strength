@@ -178,13 +178,13 @@ public class SignalStrengthPlugin extends Plugin {
 
             for (CellInfo cellInfo : cellInfoList) {
                 if (cellInfo instanceof CellInfoGsm) {
-                    new GSMCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
+                    new GSMCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoWcdma) {
-                    new WCDMACellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
+                    new WCDMACellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoLte) {
-                    new LteCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
+                    new LteCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoNr) {
-                    new NrCellProcessor().processCell(cellInfo, currentCellData, neighboringCells);
+                    new NrCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 }
             }
             JSObject result = new JSObject();
@@ -493,7 +493,7 @@ public class SignalStrengthPlugin extends Plugin {
                 result.put("callType", getNetworkVoiceType());
                 String callState = getCallStateName();
                 result.put("callState", callState);
-                
+
             }
         } catch (JSONException ignored) {}
         String networkType = getConnectionType(getContext());

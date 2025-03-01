@@ -4,6 +4,8 @@ import android.telephony.CellIdentityGsm;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthGsm;
+import android.telephony.TelephonyManager;
+
 import androidx.annotation.NonNull;
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
@@ -19,7 +21,7 @@ public class GSMCellProcessor extends CellProcessor {
             {975, 1023, "PCS 1900", "1850–1910 MHz", "1930–1990 MHz"},
     };
     @Override
-    public void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells) {
+    public void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityGsm cell = (CellIdentityGsm) cellInfo.getCellIdentity();
         CellSignalStrengthGsm signal = (CellSignalStrengthGsm) cellInfo.getCellSignalStrength();
         try {

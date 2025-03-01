@@ -2,12 +2,13 @@ package com.elsapiens.plugins.signalstrength;
 import android.telephony.CellIdentity;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrength;
+import android.telephony.TelephonyManager;
 
 import org.json.JSONArray;
 import com.getcapacitor.JSObject;
 
 public abstract class CellProcessor  {
-    abstract void processCell(CellInfo cellInfo, JSObject currentCellData, JSONArray neighboringCells);
+    abstract void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells);
 
     abstract JSObject getNeighborObject(CellIdentity cell, CellSignalStrength signal);
 
