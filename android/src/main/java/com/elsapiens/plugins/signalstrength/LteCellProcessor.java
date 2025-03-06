@@ -1,17 +1,25 @@
 package com.elsapiens.plugins.signalstrength;
-import android.content.Context;
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityLte;
 import android.telephony.CellInfo;
+import android.telephony.CellInfoLte;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthLte;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 
 public class LteCellProcessor extends CellProcessor {
     Object[][] earfcnBands = {
@@ -116,7 +124,7 @@ public class LteCellProcessor extends CellProcessor {
                 putIfValid(currentCellData, "rsrp", signal.getRsrp());
                 putIfValid(currentCellData, "rsrq", signal.getRsrq());
                 putIfValid(currentCellData, "rssi", signal.getRssi());
-                int sinr = getSINR(telephonyManager);
+                int sinr = getSINR(telephonyManager, signal);
                 putIfValid(currentCellData, "sinr", sinr);
                 putIfValid(currentCellData, "rssnr", signal.getRssnr());
                 if(sinr == Integer.MAX_VALUE && signal.getRssnr() != Integer.MAX_VALUE) {
@@ -176,21 +184,15 @@ public class LteCellProcessor extends CellProcessor {
         json.put("uplinkFrequency", uplinkFrequency);
         json.put("downlinkFrequency", downlinkFrequency);
     }
-    public int getSINR(TelephonyManager telephonyManager) {
-        int sinr = Integer.MAX_VALUE;
-        try {
-            Class<?> c = Class.forName("com.android.internal.telephony.PhoneFactory");
-            Method getServiceStateTracker = c.getDeclaredMethod("getServiceStateTracker");
-            getServiceStateTracker.setAccessible(true);
-            Object serviceStateTracker = getServiceStateTracker.invoke(null);
+    public int getSINR(TelephonyManager telephonyManager, CellSignalStrengthLte cellSignalStrengthLte)  {
 
-            Class<?> sstClass = Class.forName("com.android.internal.telephony.ServiceStateTracker");
-            Method getSINRMethod = sstClass.getDeclaredMethod("getSINR");
-            getSINRMethod.setAccessible(true);
-            sinr = (int) getSINRMethod.invoke(serviceStateTracker);
-        } catch (Exception e) {
-            e.printStackTrace();
+        Method method = null;
+        try {
+            method = CellSignalStrengthLte.class.getDeclaredMethod("getSnr");
+            method.setAccessible(true);
+            int snr = (int) method.invoke(cellSignalStrengthLte);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
         }
-        return sinr;
+        return Integer.MAX_VALUE;
     }
 }
