@@ -1,28 +1,24 @@
 package com.elsapiens.plugins.signalstrength;
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.pm.PackageManager;
+import android.os.Build;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityLte;
+import android.telephony.CellIdentityNr;
 import android.telephony.CellInfo;
-import android.telephony.CellInfoLte;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthLte;
+import android.telephony.CellSignalStrengthNr;
 import android.telephony.TelephonyManager;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
 
-public class LteCellProcessor extends CellProcessor {
-    Object[][] earfcnBands = {
+public class NrNSACellProcessor extends CellProcessor {
+
+    static Object[][] earfcnBands = {
             {0, 599, "2100", "1920-1980 MHz", "2110-2170 MHz", 60},
             {600, 1199, "1900 PCS", "1850-1910 MHz", "1930-1990 MHz", 60},
             {1200, 1949, "1800+", "1710-1785 MHz", "1805-1880 MHz", 75},
@@ -95,44 +91,73 @@ public class LteCellProcessor extends CellProcessor {
             {70656, 71055, "DL 600", "", "612-652 MHz", 40},
             {71056, 73335, "DL 500", "", "470-698 MHz", 228}
     };
+    static Object[][] nrBands = {
+            {422000, 434000, "N1 (2110-2170 MHz)", "1920-1980 MHz", "2110-2170 MHz", 60, 325},
+            {386000, 398000, "N2 (1930-1990 MHz)", "1850-1910 MHz", "1930-1990 MHz", 60, 325},
+            {361000, 376000, "N3 (1805-1880 MHz)", "1710 Mhz -1785 MHz", "1805-1880 MHz", 75, 400},
+            {173800, 178800, "N5 (869-894MHz)", "824 -849 MHz", "869-894MHz", 25, 133},
+            {524000, 538000, "N7 (2620-2690 MHz)", "2500-2570 MHz", "2620-2690 MHz", 70, 380},
+            {185000, 192000, "N8 (925-960 MHz)", "880-915 MHz", "925-960 MHz", 35, 180},
+            {145800, 149200, "N12 (729 Mhz-746 Mhz)", "699 Mhz-716 Mhz", "729 Mhz-746 Mhz", 17, 90},
+            {158200, 164200, "N20 (791-821 MHz)", "832-862 MHz", "791-821 MHz", 30, 160},
+            {386000, 399000, "N25 (1930 Mhz-1995 Mhz)", "1850 Mhz-1915 Mhz", "1930 Mhz-1995 Mhz", 65, 340},
+            {151600, 160600, "N28 (758-803 MHz)", "703-748 MHz", "758-803 MHz", 35, 180},
+            {402000, 405000, "N34 (2010 Mhz-2025 Mhz)", "2010 Mhz-2025 Mhz", "2010 Mhz-2025 Mhz", 15, 79},
+            {514002, 523998, "N38 (2570-2620 MHz)", "2570-2620 MHz", "2570-2620 MHz", 50, 273},
+            {376000, 384000, "N39 (1880 Mhz- 1920 Mhz)", "1880 Mhz - 1920 Mhz", "1880 Mhz- 1920 Mhz", 40, 217},
+            {460000, 480000, "N40 (2300 Mhz - 2400 Mhz)", "2300 Mhz - 2400 Mhz", "2300 Mhz - 2400 Mhz", 100, 500},
+            {499200, 537999, "N41 (2496-2690 MHz)", "2496-2690 MHz", "2496-2690 MHz", 194, 970},
+            {286400, 303400, "N50 (1432-1517 MHz)", "1432-1517 MHz", "1432-1517 MHz", 85, 450},
+            {285400, 286400, "N51 (1427-1432 MHz)", "1427-1432 MHz", "1427-1432 MHz", 5, 25},
+            {422000, 440000, "N66 (2110-2200 MHz)", "1710-1780 MHz", "2110-2200 MHz", 90, 480},
+            {399000, 404000, "N70 (1995-2020 MHz)", "1695-1710 MHz ", "1995-2020 MHz", 25, 133},
+            {123400, 130400, "N71 (617-652 MHz)", "663-698 MHz", "617-652 MHz", 35, 180},
+            {295000, 303600, "N74 (1475-1518 MHz)", "1427-1470 MHz", "1475-1518 MHz", 43, 230},
+            {286400, 303400, "N75 (1432 Mhz -1517 MHz)", "", "1432 Mhz -1517 MHz", 85, 450},
+            {285400, 286400, "N76 (1427 Mhz -1432 MHz)", "", "1427 Mhz -1432 MHz", 5, 25},
+            {620000, 680000, "N77 (3300- 4200 MHz)", "3300- 4200 MHz", "3300- 4200 MHz", 900, 4500},
+            {620000, 653333, "N78 (3300 MHz - 3800 MHz)", "3300-3800 MHz", "3300 MHz - 3800 MHz", 500, 2500},
+            {693333, 733333, "N79 (4400 MHz - 5000 MHz)", "4400-5000 MHz", "4400 MHz - 5000 MHz", 600, 3000},
+            {2054167, 2104166, "N257 (26500 MHz29500 MHz)", "26500 MHz29500 MHz", "26500 MHz29500 MHz", 3000, 15000},
+            {2016667, 2070833, "N258 (24250 MHz27500 MHz)", "24250 MHz27500 MHz", "24250 MHz27500 MHz", 3250, 16250},
+            {2229167, 2279166, "N260 (37000 MHz40000 MHz)", "37000 MHz40000 MHz", "37000 MHz40000 MHz", 3000, 15000},
+            {2070833, 2084999, "N261 (27500 MHz 28350 MH)", "27500 MHz 28350 MH", "27500 MHz 28350 MH", 850, 4250},
+            {2399167, 2415831, "N262 (47200 MHz 48200 MHz)", "47200 MHz 48200 MHz", "47200 MHz 48200 MHz", 1000, 5000}
+    };
 
     @Override
     public void processCell(CellInfo cellInfo, CellInfo nrCellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityLte cell = (CellIdentityLte) cellInfo.getCellIdentity();
         CellSignalStrengthLte signal = (CellSignalStrengthLte) cellInfo.getCellSignalStrength();
+        CellIdentityNr nrCell = (CellIdentityNr) nrCellInfo.getCellIdentity();
+        CellSignalStrengthNr nrSignal = (CellSignalStrengthNr) nrCellInfo.getCellSignalStrength();
 
         try {
             if (cellInfo.isRegistered()) {
-                currentCellData.put("type", "LTE");
-                currentCellData.put("technology", "4G");
+                currentCellData.put("type", "NR NSA");
+                currentCellData.put("technology", "5G");
                 currentCellData.put("mcc", cell.getMccString());
                 currentCellData.put("mnc", cell.getMncString());
                 currentCellData.put("operator", cell.getOperatorAlphaLong());
                 putIfValid(currentCellData, "cid", cell.getCi());
-                int ci = cell.getCi();
-                if (ci != Integer.MAX_VALUE) {
-                    int enodeb = ci / 256;
-                    int cellId = ci % 256;
-                    putIfValid(currentCellData, "cellId", cellId);
-                    putIfValid(currentCellData, "enodebId", enodeb);
-                }
-                putIfValid(currentCellData, "pci", cell.getPci());
+                putCellId(currentCellData, cell, nrCell);
+                String pci = nrCell.getPci() != Integer.MAX_VALUE ? "" + nrCell.getPci() : "";
+                pci += cell.getPci() != Integer.MAX_VALUE ? "/" + (cell.getPci()) : "";
+                currentCellData.put("pci", pci);
+                String ARFCN = nrCell.getNrarfcn() != Integer.MAX_VALUE ? ""+ nrCell.getNrarfcn() : "";
+                ARFCN += cell.getEarfcn() != Integer.MAX_VALUE ?  "/" + (cell.getEarfcn()) : "";
+                currentCellData.put("nrarfcn", ARFCN);
+                putValidNsaData(currentCellData, signal.getRsrp(), nrSignal.getSsRsrp(), "rsrp");
+                putValidNsaData(currentCellData, signal.getRsrq(), nrSignal.getSsRsrq(), "rsrq");
+                putValidNsaData(currentCellData, signal.getRssnr(), nrSignal.getSsSinr(), "sinr");
                 putIfValid(currentCellData, "tac", cell.getTac());
-                putIfValid(currentCellData, "earfcn", cell.getEarfcn());
                 putIfValidAsu(currentCellData, signal.getAsuLevel());
                 putIfValid(currentCellData, "level", signal.getLevel());
-                putIfValid(currentCellData, "rsrp", signal.getRsrp());
-                putIfValid(currentCellData, "rsrq", signal.getRsrq());
                 putIfValid(currentCellData, "rssi", signal.getRssi());
-                int sinr = getSINR(telephonyManager, signal);
-                putIfValid(currentCellData, "sinr", sinr);
-                putIfValid(currentCellData, "rssnr", signal.getRssnr());
-                if(sinr == Integer.MAX_VALUE && signal.getRssnr() != Integer.MAX_VALUE) {
-                    currentCellData.put("sinr", signal.getRssnr());
-                }
                 putIfValid(currentCellData, "cqi", signal.getCqi());
+
                 putIfValid(currentCellData, "ta", signal.getTimingAdvance());
-                putBandFromEARFCN(currentCellData, cell.getEarfcn());
+                putBandFromEARFCN(currentCellData, cell.getEarfcn(), nrCell.getNrarfcn());
             } else if(cell.getCi() > 0 && cell.getCi() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
                 neighboringCells.put(neighbor);
@@ -164,10 +189,13 @@ public class LteCellProcessor extends CellProcessor {
         putIfValidAsu(neighbor, lteSignal.getAsuLevel()); // arbitrary strength unit
         return neighbor;
     }
-    private  void putBandFromEARFCN(JSObject json, int earfcn) {
+    private  void putBandFromEARFCN(JSObject json, int earfcn, int nrarfcn) {
         String bandName = "Unknown Band";
         String uplinkFrequency = "Unknown Uplink";
         String downlinkFrequency = "Unknown Downlink";
+        String bandNameNR = "Unknown Band";
+        String uplinkFrequencyNR = "Unknown Uplink";
+        String downlinkFrequencyNR = "Unknown Downlink";
 
         for (Object[] band : earfcnBands) {
             int lowerBound = (int) band[0];
@@ -180,19 +208,70 @@ public class LteCellProcessor extends CellProcessor {
             }
         }
 
+        for (Object[] band : nrBands) {
+            int lowerBound = (int) band[0];
+            int upperBound = (int) band[1];
+            if (nrarfcn >= lowerBound && nrarfcn <= upperBound) {
+                bandNameNR = (String) band[2];
+                uplinkFrequencyNR = (String) band[3];
+                downlinkFrequencyNR = (String) band[4];
+                break;
+            }
+        }
+        if (!bandName.equals("Unknown Band") && !bandNameNR.equals("Unknown Band")) {
+            bandName = bandNameNR + " / " + bandName;
+            uplinkFrequency = uplinkFrequencyNR + " / " + uplinkFrequency;
+            downlinkFrequency = downlinkFrequencyNR + " / " + downlinkFrequency;
+        } else if (!bandName.equals("Unknown Band")) {
+        } else if (!bandNameNR.equals("Unknown Band")) {
+            bandName = bandNameNR;
+            uplinkFrequency = uplinkFrequencyNR;
+            downlinkFrequency = downlinkFrequencyNR;
+        }
         json.put("band", bandName);
         json.put("uplinkFrequency", uplinkFrequency);
         json.put("downlinkFrequency", downlinkFrequency);
     }
-    public int getSINR(TelephonyManager telephonyManager, CellSignalStrengthLte cellSignalStrengthLte)  {
 
-        Method method = null;
-        try {
-            method = CellSignalStrengthLte.class.getDeclaredMethod("getSnr");
-            method.setAccessible(true);
-            int snr = (int) method.invoke(cellSignalStrengthLte);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+    private void putValidNsaData(JSObject json, int lteData, int nrData, String key) {
+        if (lteData != Integer.MAX_VALUE && nrData != Integer.MAX_VALUE) {
+            json.put(key, nrData + "/" + lteData);
+        } else if (lteData != Integer.MAX_VALUE) {
+            json.put(key, lteData);
+        } else if (nrData != Integer.MAX_VALUE) {
+            json.put(key, nrData);
+        } else {
+            json.put(key, "Unknown");
         }
-        return Integer.MAX_VALUE;
     }
+
+    private void putCellId(JSObject json, CellIdentityLte cell, CellIdentityNr nrCell) {
+        try {
+            int enodeb = Integer.MAX_VALUE;
+            int cellId = Integer.MAX_VALUE;
+            long gNodeB = Long.MAX_VALUE;
+            long ncellId = Long.MAX_VALUE;
+            int ci = cell.getCi();
+            if (ci != Integer.MAX_VALUE) {
+                enodeb = ci / 256;
+                cellId = ci % 256;
+            }if (enodeb != Integer.MAX_VALUE) {
+                json.put("gnodebId", enodeb);
+            } else {
+                json.put("gnodebId", "Unknown");
+            }
+            if (cellId != Integer.MAX_VALUE && ncellId != Long.MAX_VALUE) {
+                json.put("cellId", cellId + "/" + ncellId);
+            } else if (cellId != Integer.MAX_VALUE) {
+                json.put("cellId", cellId);
+            } else if (ncellId != Long.MAX_VALUE) {
+                json.put("cellId", ncellId);
+            } else {
+                json.put("cellId", "Unknown");
+            }
+        } catch (Exception e) {
+            json.put("cellId", "Unknown");
+        }
+    }
+
 }

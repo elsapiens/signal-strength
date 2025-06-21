@@ -24,7 +24,7 @@ public class WCDMACellProcessor extends CellProcessor {
             {3842, 3903, "Band 19 (850 MHz)", "830–845 MHz", "875–890 MHz"},
     };
     @Override
-    public void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
+    public void processCell(CellInfo cellInfo, CellInfo nrCellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityWcdma cell = (CellIdentityWcdma) cellInfo.getCellIdentity();
         CellSignalStrengthWcdma signal = (CellSignalStrengthWcdma) cellInfo.getCellSignalStrength();
         try {

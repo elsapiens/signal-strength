@@ -141,7 +141,7 @@ export class SignalStrengthWeb extends WebPlugin implements SignalStrengthPlugin
       rsrp: -1 * (Math.floor(Math.random() * 50) + 80),
       rsrq: -1 * (Math.floor(Math.random() * 10) + 10),
       sssinr: Math.floor(Math.random() * 30),
-      band: Math.floor(Math.random() * 100),
+      band: Math.floor(Math.random() * 100).toString(),
       cqi: Math.floor(Math.random() * 15),
     }),
       (forreturn.neighboringCells = [

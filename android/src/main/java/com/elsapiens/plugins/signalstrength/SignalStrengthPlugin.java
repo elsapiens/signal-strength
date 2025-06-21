@@ -1,7 +1,4 @@
 package com.elsapiens.plugins.signalstrength;
-
-import static androidx.core.content.ContextCompat.getSystemService;
-
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -16,18 +13,15 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.TrafficStats;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.telecom.Call;
 import android.telecom.TelecomManager;
 import android.telephony.*;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -40,7 +34,6 @@ import org.json.JSONException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -125,24 +118,12 @@ public class SignalStrengthPlugin extends Plugin {
         if (context != null) {
             telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (telephonyCallback == null) {
-                telephonyCallback = new MyTelephonyCallback();
-            }
-            assert context != null;
-            telephonyManager.registerTelephonyCallback(context.getMainExecutor(), telephonyCallback);
-        } else {
-            Executor executor = Executors.newSingleThreadExecutor();
-            phoneStateListener = new PhoneStateListener(executor) {
-                @Override
-                public void onCellInfoChanged(List<CellInfo> cellInfoList) {
-                    Log.d(TAG, "onCellInfoChanged triggered (Legacy API)");
-                    handleCellInfoChanged(cellInfoList);
-                }
-            };
-            telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CELL_INFO);
-        }
-        registerCellInfoListenerRunning = true;
+      if (telephonyCallback == null) {
+        telephonyCallback = new MyTelephonyCallback();
+      }
+      assert context != null;
+      telephonyManager.registerTelephonyCallback(context.getMainExecutor(), telephonyCallback);
+      registerCellInfoListenerRunning = true;
         scheduler = Executors.newScheduledThreadPool(1);
         scheduler.scheduleWithFixedDelay(new SignalStrengthTask(), 0, 100, TimeUnit.MILLISECONDS); // Every 1 second
         call.resolve();
@@ -164,7 +145,6 @@ public class SignalStrengthPlugin extends Plugin {
         }
     }
 
-    @SuppressLint("MissingPermission")
     private void handleCellInfoChanged(List<CellInfo> cellInfoList) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastUpdateTime < 900) {
@@ -175,21 +155,34 @@ public class SignalStrengthPlugin extends Plugin {
         if (cellInfoList != null && !cellInfoList.isEmpty()) {
             JSONArray neighboringCells = new JSONArray();
             JSObject currentCellData = new JSObject();
-
+            boolean isNsaNR =  this.checkIfNsaNR(cellInfoList);
+            CellInfo NrCellInfo = null;
+            if (isNsaNR) {
+                for (CellInfo cellInfo : cellInfoList) {
+                    if (cellInfo instanceof CellInfoNr) {
+                        NrCellInfo = cellInfo;
+                        break;
+                    }
+                }
+            }
             for (CellInfo cellInfo : cellInfoList) {
                 if (cellInfo instanceof CellInfoGsm) {
-                    new GSMCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
+                    new GSMCellProcessor().processCell(cellInfo, NrCellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoWcdma) {
-                    new WCDMACellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
+                    new WCDMACellProcessor().processCell(cellInfo, NrCellInfo, currentCellData, this.telephonyManager, neighboringCells);
+                } else if (cellInfo instanceof CellInfoLte && isNsaNR){
+                    new NrNSACellProcessor().processCell(cellInfo, NrCellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoLte) {
-                    new LteCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
+                    new LteCellProcessor().processCell(cellInfo, NrCellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 } else if (cellInfo instanceof CellInfoNr) {
-                    new NrCellProcessor().processCell(cellInfo, currentCellData, this.telephonyManager, neighboringCells);
+                    new NrCellProcessor().processCell(cellInfo, NrCellInfo, currentCellData, this.telephonyManager, neighboringCells);
                 }
             }
             JSObject result = new JSObject();
-            if (!Objects.equals(requestedTechnology, "All")
-                    && !Objects.equals(requestedTechnology, getNetworkType())) {
+            if (
+                    !(requestedTechnology.equals("ALL")
+                    && !Objects.equals(requestedTechnology, getNetworkType())
+            )) {
                 result.put("status", "error");
                 result.put("message", "Not connected on the requested network type " + requestedTechnology);
             } else {
@@ -200,13 +193,22 @@ public class SignalStrengthPlugin extends Plugin {
             result.put("neighboringCells", neighboringCells);
             result.put("timestamp", currentTime);
             result.put("networkType", getNetworkType());
-            result.put("networkTypeName", getNetworkTypeName(telephonyManager.getDataNetworkType()));
+          if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            notifyListeners("signalUpdate", result);
+          }
+          result.put("networkTypeName", getNetworkTypeName(telephonyManager.getDataNetworkType()));
             notifyListeners("signalUpdate", result);
         }
     }
 
+    private boolean checkIfNsaNR(List<CellInfo> cellInfoList) {
+        boolean hasLTE = cellInfoList.stream().anyMatch(cellInfo -> cellInfo instanceof CellInfoLte);
+        boolean hasNR = cellInfoList.stream().anyMatch(cellInfo -> cellInfo instanceof CellInfoNr);
+        return hasLTE && hasNR;
+    }
+
     private void unregisterCellInfoListener() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && telephonyCallback != null) {
+        if (telephonyCallback != null) {
             telephonyManager.unregisterTelephonyCallback(telephonyCallback);
             telephonyCallback = null;
             registerCellInfoListenerRunning = false;
@@ -217,7 +219,6 @@ public class SignalStrengthPlugin extends Plugin {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.S)
     private class MyTelephonyCallback extends TelephonyCallback implements TelephonyCallback.CellInfoListener {
         @Override
         public void onCellInfoChanged(@NonNull List<CellInfo> cellInfoList) {
@@ -234,9 +235,12 @@ public class SignalStrengthPlugin extends Plugin {
             requestPermissionForAliases(new String[]{"location", "backgroundLocation", "phone", "networkState"}, call, methodName);
         }
     }
-    @SuppressLint("MissingPermission")
+
     private String getNetworkType() {
-        int networkType = telephonyManager.getDataNetworkType();
+      if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+        return "Permission Denied";
+      }
+      int networkType = telephonyManager.getDataNetworkType();
         return getNetworkTypeString(networkType);
     }
 
@@ -450,7 +454,7 @@ public class SignalStrengthPlugin extends Plugin {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error getting network voice type: " + e.getMessage());
+            Log.e(TAG, "Error fetching network voice type: " + e.getMessage());
         }
         return callType;
     }

@@ -73,7 +73,7 @@ export interface CurrentCellInfo {
   rxqual?: number; // Received Signal Quality (GSM)
   sssinr?: number; // Signal-to-Noise and Interference Ratio (5G)
   sinr?: number; // Signal-to-Noise Ratio (LTE)
-  band?: number | number[]; // Bandwidth (LTE/5G)
+  band?: string | string[] | number | number[]; // Frequency Band (GSM, LTE, 5G)
   cqi?: number | number[]; // Channel Quality Indicator (LTE/5G)
   ecno?: number; // Energy per Chip to Noise Ratio (WCDMA)
   psc?: number; // Primary Scrambling Code (WCDMA)

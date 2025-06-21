@@ -8,7 +8,7 @@ import org.json.JSONArray;
 import com.getcapacitor.JSObject;
 
 public abstract class CellProcessor  {
-    abstract void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells);
+    abstract void processCell(CellInfo cellInfo, CellInfo nrCellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells);
 
     abstract JSObject getNeighborObject(CellIdentity cell, CellSignalStrength signal);
 

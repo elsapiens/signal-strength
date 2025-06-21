@@ -45,7 +45,7 @@ public class NrCellProcessor extends CellProcessor {
             {2399167, 2415831, "N262 (47200 MHz 48200 MHz)", "47200 MHz 48200 MHz", "47200 MHz 48200 MHz", 1000, 5000}
     };
     @Override
-    public void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
+    public void processCell(CellInfo cellInfo, CellInfo nrCellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityNr cell = (CellIdentityNr) cellInfo.getCellIdentity();
         CellSignalStrengthNr signal = (CellSignalStrengthNr) cellInfo.getCellSignalStrength();
         String technology = "NR";

@@ -21,7 +21,7 @@ public class GSMCellProcessor extends CellProcessor {
             {975, 1023, "PCS 1900", "1850–1910 MHz", "1930–1990 MHz"},
     };
     @Override
-    public void processCell(CellInfo cellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
+    public void processCell(CellInfo cellInfo, CellInfo nrCellInfo, JSObject currentCellData, TelephonyManager telephonyManager, JSONArray neighboringCells) {
         CellIdentityGsm cell = (CellIdentityGsm) cellInfo.getCellIdentity();
         CellSignalStrengthGsm signal = (CellSignalStrengthGsm) cellInfo.getCellSignalStrength();
         try {
