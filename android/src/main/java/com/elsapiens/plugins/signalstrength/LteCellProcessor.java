@@ -1,25 +1,18 @@
 package com.elsapiens.plugins.signalstrength;
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.pm.PackageManager;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityLte;
 import android.telephony.CellInfo;
-import android.telephony.CellInfoLte;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthLte;
 import android.telephony.TelephonyManager;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
 
 import com.getcapacitor.JSObject;
 import org.json.JSONArray;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
 
 public class LteCellProcessor extends CellProcessor {
     Object[][] earfcnBands = {
@@ -119,17 +112,10 @@ public class LteCellProcessor extends CellProcessor {
                 putIfValid(currentCellData, "pci", cell.getPci());
                 putIfValid(currentCellData, "tac", cell.getTac());
                 putIfValid(currentCellData, "earfcn", cell.getEarfcn());
-                putIfValidAsu(currentCellData, signal.getAsuLevel());
-                putIfValid(currentCellData, "level", signal.getLevel());
                 putIfValid(currentCellData, "rsrp", signal.getRsrp());
                 putIfValid(currentCellData, "rsrq", signal.getRsrq());
                 putIfValid(currentCellData, "rssi", signal.getRssi());
-                int sinr = getSINR(telephonyManager, signal);
-                putIfValid(currentCellData, "sinr", sinr);
                 putIfValid(currentCellData, "rssnr", signal.getRssnr());
-                if(sinr == Integer.MAX_VALUE && signal.getRssnr() != Integer.MAX_VALUE) {
-                    currentCellData.put("sinr", signal.getRssnr());
-                }
                 putIfValid(currentCellData, "cqi", signal.getCqi());
                 putIfValid(currentCellData, "ta", signal.getTimingAdvance());
                 putBandFromEARFCN(currentCellData, cell.getEarfcn());
@@ -145,6 +131,8 @@ public class LteCellProcessor extends CellProcessor {
         CellSignalStrengthLte lteSignal = (CellSignalStrengthLte) signal;
         CellIdentityLte lteCell = (CellIdentityLte) cell;
         JSObject neighbor = new JSObject();
+        neighbor.put("mcc", lteCell.getMccString());
+        neighbor.put("mnc", lteCell.getMncString());
         neighbor.put("cid", lteCell.getCi()); // Cell id
         putIfValid(neighbor, "cid", lteCell.getCi());
         if(neighbor.has("cid")) {
@@ -159,9 +147,10 @@ public class LteCellProcessor extends CellProcessor {
         putIfValid(neighbor, "rsrp", lteSignal.getRsrp()); // reference signal received power
         putIfValid(neighbor, "rsrq", lteSignal.getRsrq()); // reference signal received quality
         putIfValid(neighbor, "rssi", lteSignal.getRssi()); // reference signal strength indicator
-        putIfValid(neighbor, "sinr", lteSignal.getRssnr()); // signal-to-interference-plus-noise ratio
+        putIfValid(neighbor, "rssnr", lteSignal.getRssnr()); // signal-to-interference-plus-noise ratio
         putIfValid(neighbor, "cqi", lteSignal.getCqi()); // channel quality indicator
-        putIfValidAsu(neighbor, lteSignal.getAsuLevel()); // arbitrary strength unit
+        putIfValid(neighbor, "ta", lteSignal.getTimingAdvance()); // timing advance
+        putBandFromEARFCN(neighbor, lteCell.getEarfcn()); // Determine LTE Band
         return neighbor;
     }
     private  void putBandFromEARFCN(JSObject json, int earfcn) {
@@ -183,16 +172,5 @@ public class LteCellProcessor extends CellProcessor {
         json.put("band", bandName);
         json.put("uplinkFrequency", uplinkFrequency);
         json.put("downlinkFrequency", downlinkFrequency);
-    }
-    public int getSINR(TelephonyManager telephonyManager, CellSignalStrengthLte cellSignalStrengthLte)  {
-
-        Method method = null;
-        try {
-            method = CellSignalStrengthLte.class.getDeclaredMethod("getSnr");
-            method.setAccessible(true);
-            int snr = (int) method.invoke(cellSignalStrengthLte);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
-        }
-        return Integer.MAX_VALUE;
     }
 }

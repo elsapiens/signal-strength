@@ -103,8 +103,7 @@ public class NrCellProcessor extends CellProcessor {
         long gNodeB = nci >> 10;
         long cellId = nci & 0x3FF;
 
-        neighbor.put("cid", nrCell.getNci()); // NR Cell ID
-        neighbor.put("nci", nci); // Full NR Cell ID
+        neighbor.put("cid", nci); // Full NR Cell Identity
         neighbor.put("cellId", cellId); // Cell ID
         neighbor.put("gnodebId", gNodeB); // gNodeB ID
         neighbor.put("pci", nrCell.getPci()); // Physical Cell ID
@@ -113,8 +112,11 @@ public class NrCellProcessor extends CellProcessor {
         neighbor.put("arfcn", nrCell.getNrarfcn()); // Absolute Frequency Number
         neighbor.put("rsrp", nrSignal.getSsRsrp());
         neighbor.put("rsrq", nrSignal.getSsRsrq());
+        neighbor.put("rssi", getRssiFromSignal(nrSignal.getSsRsrp(), nrCell.getNrarfcn())); // RSSI
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            neighbor.put("ta", nrSignal.getTimingAdvanceMicros() != Integer.MAX_VALUE ? nrSignal.getTimingAdvanceMicros() : 0); // Timing Advance
+        }
         neighbor.put("sssinr", nrSignal.getSsSinr());
-
         return neighbor;
     }
     private static void putBandFromNRARFCN(JSObject json, int nrarfcn) {

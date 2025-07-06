@@ -154,8 +154,11 @@ public class NrNSACellProcessor extends CellProcessor {
                 putIfValidAsu(currentCellData, signal.getAsuLevel());
                 putIfValid(currentCellData, "level", signal.getLevel());
                 putIfValid(currentCellData, "rssi", signal.getRssi());
-                putIfValid(currentCellData, "cqi", signal.getCqi());
-
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                    putIfValid(currentCellData, "cqi", nrSignal.getCsiCqiReport().getFirst());
+                }else {
+                    putIfValid(currentCellData, "cqi", signal.getCqi());
+                }
                 putIfValid(currentCellData, "ta", signal.getTimingAdvance());
                 putBandFromEARFCN(currentCellData, cell.getEarfcn(), nrCell.getNrarfcn());
             } else if(cell.getCi() > 0 && cell.getCi() != Integer.MAX_VALUE) {
@@ -167,10 +170,48 @@ public class NrNSACellProcessor extends CellProcessor {
     }
     @NonNull
     protected JSObject getNeighborObject(CellIdentity cell, CellSignalStrength signal){
+        if(signal instanceof CellSignalStrengthNr) {
+            return getNeighborObjectNr(cell, signal);
+        } else if(signal instanceof CellSignalStrengthLte) {
+            return getNeighborObjectLte(cell, signal);
+        } else {
+            return new JSObject();
+        }
+    }
+
+    private JSObject getNeighborObjectNr(CellIdentity cell, CellSignalStrength signal) {
+        CellIdentityNr nrCell = (CellIdentityNr) cell;
+        CellSignalStrengthNr nrSignal = (CellSignalStrengthNr) signal;
+        JSObject neighbor = new JSObject();
+
+        long nci = nrCell.getNci();
+        long gNodeB = nci >> 10;
+        long cellId = nci & 0x3FF;
+
+        neighbor.put("cid", nci); // Full NR Cell Identity
+        neighbor.put("cellId", cellId); // Cell ID
+        neighbor.put("gnodebId", gNodeB); // gNodeB ID
+        neighbor.put("pci", nrCell.getPci()); // Physical Cell ID
+        neighbor.put("tac", nrCell.getTac()); // Tracking Area Code
+        neighbor.put("nrarfcn", nrCell.getNrarfcn()); // Absolute Frequency Number
+        neighbor.put("arfcn", nrCell.getNrarfcn()); // Absolute Frequency Number
+        neighbor.put("rsrp", nrSignal.getSsRsrp());
+        neighbor.put("rsrq", nrSignal.getSsRsrq());
+        neighbor.put("rssi", nrSignal.getSsSinr());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            neighbor.put("ta", nrSignal.getTimingAdvanceMicros() != Integer.MAX_VALUE ? nrSignal.getTimingAdvanceMicros() : 0); // Timing Advance
+        }
+        neighbor.put("sinr", nrSignal.getSsSinr());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            neighbor.put("cqi", nrSignal.getCsiCqiReport().getFirst()); // Channel Quality Indicator
+        }
+        return neighbor;
+    }
+
+    private JSObject getNeighborObjectLte(CellIdentity cell, CellSignalStrength signal) {
         CellSignalStrengthLte lteSignal = (CellSignalStrengthLte) signal;
         CellIdentityLte lteCell = (CellIdentityLte) cell;
         JSObject neighbor = new JSObject();
-        neighbor.put("cid", lteCell.getCi()); // Cell id
         putIfValid(neighbor, "cid", lteCell.getCi());
         if(neighbor.has("cid")) {
             int enodeb = lteCell.getCi() / 256;
@@ -186,7 +227,7 @@ public class NrNSACellProcessor extends CellProcessor {
         putIfValid(neighbor, "rssi", lteSignal.getRssi()); // reference signal strength indicator
         putIfValid(neighbor, "sinr", lteSignal.getRssnr()); // signal-to-interference-plus-noise ratio
         putIfValid(neighbor, "cqi", lteSignal.getCqi()); // channel quality indicator
-        putIfValidAsu(neighbor, lteSignal.getAsuLevel()); // arbitrary strength unit
+        putIfValid(neighbor, "ta", lteSignal.getTimingAdvance()); // timing advance
         return neighbor;
     }
     private  void putBandFromEARFCN(JSObject json, int earfcn, int nrarfcn) {

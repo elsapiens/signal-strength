@@ -43,8 +43,6 @@ public class GSMCellProcessor extends CellProcessor {
                 if (ber >= 0 && ber <= 7) {
                     currentCellData.put("rxqual", ber); // Bit Error Rate
                 }
-                putIfValidAsu(currentCellData, signal.getAsuLevel()); // Arbitrary Strength Unit
-                putIfValid(currentCellData, "level", signal.getLevel()); // Signal Level (0-4)
                 putBandFromARFCN(currentCellData, cell.getArfcn()); // Determine GSM Band
             } else if (cell.getCid() > 0 && cell.getCid() != Integer.MAX_VALUE) {
                 JSObject neighbor = getNeighborObject(cell, signal);
@@ -58,22 +56,18 @@ public class GSMCellProcessor extends CellProcessor {
         JSObject neighbor = new JSObject();
         CellIdentityGsm gsmCell = (CellIdentityGsm) cell;
         CellSignalStrengthGsm  gsmSignal = (CellSignalStrengthGsm) signal;
-        putIfValid(neighbor, "type", "GSM");
-        putIfValid(neighbor, "technology", "2G");
-        putIfValid(neighbor, "mcc", gsmCell.getMccString());
-        putIfValid(neighbor, "mnc", gsmCell.getMncString());
-        putIfValid(neighbor, "operator", gsmCell.getOperatorAlphaLong());
         putIfValid(neighbor, "cid", gsmCell.getCid()); // Cell ID
         putIfValid(neighbor, "cellId", gsmCell.getCid()); // Cell ID
         putIfValid(neighbor, "lac", gsmCell.getLac()); // Location Area Code
         putIfValid(neighbor, "bsic", gsmCell.getBsic()); // Base Station Identity Code
         putIfValid(neighbor, "arfcn", gsmCell.getArfcn()); // Frequency Number
         putIfValid(neighbor, "rxlev", signal.getDbm()); // Signal strength in dBm
+        putIfValid(neighbor, "ta", gsmSignal.getTimingAdvance() != Integer.MAX_VALUE ? gsmSignal.getTimingAdvance() : 0); // Timing Advance
+        putBandFromARFCN(neighbor, gsmCell.getArfcn()); // Determine GSM Band
         int ber = gsmSignal.getBitErrorRate();
         if (ber >= 0 && ber <= 7) {
             neighbor.put("rxqual", ber); // Bit Error Rate
         }
-        putIfValidAsu(neighbor, gsmSignal.getAsuLevel()); // Arbitrary Strength Unit
         return neighbor;
     }
     private void putBandFromARFCN(JSObject json, int arfcn) {

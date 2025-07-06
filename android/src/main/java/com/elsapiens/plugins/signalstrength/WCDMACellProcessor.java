@@ -60,8 +60,6 @@ public class WCDMACellProcessor extends CellProcessor {
         putIfValid(neighbor, "lac", wcdmaCell.getLac());
         putIfValid(neighbor, "psc", wcdmaCell.getPsc());
         putIfValid(neighbor, "uarfcn", wcdmaCell.getUarfcn());
-        putIfValid(neighbor, "rxlev", signal.getDbm());
-        putIfValid(neighbor, "asulevel", signal.getAsuLevel());
         return neighbor;
     }
 
